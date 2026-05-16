@@ -197,6 +197,33 @@ nav a:hover,nav a.active{background:var(--toprak-koyu);border-bottom-color:var(-
 
 
 
+
+/* HABER & DUYURU SLIDER KARTLARI */
+.hkart-slider-wrap{position:relative;overflow:hidden;margin:-4px;}
+.hkart-track{display:flex;gap:0;transition:transform .5s cubic-bezier(.4,0,.2,1);}
+.hkart{min-width:100%;position:relative;cursor:pointer;border-radius:8px;overflow:hidden;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.08);}
+.hkart-foto{width:100%;height:200px;object-fit:cover;display:block;}
+.hkart-foto-placeholder{width:100%;height:120px;background:linear-gradient(135deg,var(--toprak-koyu),var(--toprak));display:flex;align-items:center;justify-content:center;font-size:2rem;}
+.hkart-icerik{padding:14px 16px;}
+.hkart-etiket{display:inline-block;padding:2px 8px;border-radius:3px;font-size:.7rem;font-weight:700;margin-bottom:6px;background:#dbeafe;color:#1e40af;}
+.hkart-etiket.duyuru{background:#fef9c3;color:#854d0e;}
+.hkart-baslik{font-family:"Playfair Display",serif;font-size:1rem;font-weight:700;color:var(--antrasit);margin-bottom:5px;line-height:1.3;}
+.hkart-ozet{font-size:.83rem;color:var(--gri);line-height:1.5;}
+.hkart-meta{font-size:.74rem;color:#aaa;margin-top:8px;}
+.hkart-nav{display:flex;align-items:center;justify-content:space-between;padding:10px 4px 4px;}
+.hkart-dots{display:flex;gap:5px;}
+.hkart-dot{width:7px;height:7px;border-radius:50%;background:#ddd;border:none;cursor:pointer;transition:background .2s;padding:0;}
+.hkart-dot.aktif{background:var(--toprak);}
+.hkart-oklar{display:flex;gap:6px;}
+.hkart-ok{width:28px;height:28px;border-radius:50%;background:var(--krem);border:1px solid #ddd;cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+.hkart-ok:hover{background:var(--toprak);color:#fff;border-color:var(--toprak);}
+.hkart-sayac{font-size:.78rem;color:var(--gri);}
+/* Fotoğraf üstü overlay */
+.hkart-overlay{position:absolute;bottom:0;left:0;right:0;padding:14px 16px;background:linear-gradient(to top,rgba(0,0,0,.75) 0%,rgba(0,0,0,.3) 60%,transparent 100%);}
+.hkart-overlay .hkart-baslik{color:#fff;}
+.hkart-overlay .hkart-etiket{margin-bottom:5px;}
+.hkart-overlay .hkart-meta{color:rgba(255,255,255,.7);}
+
 /* ARŞİV SLIDER */
 .slider-bolum{padding:0 28px 36px;max-width:1280px;margin:0 auto;}
 .slider-bolum h3{font-family:"Playfair Display",serif;font-size:1.3rem;color:var(--toprak-koyu);margin-bottom:14px;}
@@ -1081,6 +1108,10 @@ window.sifreSifirla = async () => {
   catch(e) { modalHataGoster('Hata: '+e.message); }
 };
 // Cloudinary yükleme fonksiyonunu global yap
+// tarihFormat global
+window.tarihFormat = tarihFormat;
+window._mevcutRol_getter = () => mevcutRol;
+
 window.cloudinaryYukle = async (file, klasor='galeri') => {
   const fd = new FormData();
   fd.append('file', file);
@@ -1100,19 +1131,10 @@ async function haberlerYukle() {
     const snap = await getDocs(query(collection(db,'haberler'),orderBy('createdAt','desc'),limit(20)));
     const liste = document.getElementById('haberlerListesi');
     if (snap.empty) { liste.innerHTML='<p style="color:var(--gri);font-size:.86rem">Henüz haber yok.</p>'; document.getElementById('statHaber').textContent='0'; return; }
-    liste.innerHTML = snap.docs.map(d=>{
-      const h=d.data();
-      return `<div class="haber-item">
-        <div class="haber-tarih">${tarihKisa(h.createdAt)}</div>
-        <div style="cursor:pointer;flex:1" onclick="detayGosterFoto('${h.baslik}','${encodeURIComponent(h.icerik||'')}','${h.fotoUrl||''}')">
-          <span class="etiket et-h">Haber</span>
-          <h4>${h.baslik||'—'}</h4>
-          <p>${(h.icerik||'').substring(0,85)}${(h.icerik||'').length>85?'...':''}</p>
-          ${h.fotoUrl?`<img src="${h.fotoUrl}" style="width:100%;max-height:140px;object-fit:cover;border-radius:6px;margin-top:6px" loading="lazy">`:''}
-        </div>
-        ${mevcutRol&&['admin','superAdmin'].includes(mevcutRol)?`<button class="haber-sil" onclick="icerikSil('haberler','${d.id}',haberlerYukle)">🗑</button>`:''}
-      </div>`;
-    }).join('');
+    // Slider olarak render et
+    const haberData = snap.docs.map(d=>({id:d.id,...d.data()}));
+    liste.innerHTML = haberSliderHTML(haberData, 'haberler', 'haber');
+    haberSliderBagla('haberlerSlider', haberData, 'haberler');
     document.getElementById('statHaber').textContent = snap.size;
   } catch(e) { console.error(e); }
 }
@@ -1601,10 +1623,116 @@ window.bolumKay = (id) => {
   }
 };
 </script>
-</body>
-</html>
 
 <script>
+// ══════════════════════════════════════════════════
+// HABER & DUYURU SLIDER SİSTEMİ
+// ══════════════════════════════════════════════════
+const _sliderState = {};
+
+function haberSliderHTML(data, koleksiyon, tip) {
+  if (!data.length) return '<p style="color:var(--gri);font-size:.86rem;padding:8px 0">Henüz içerik yok.</p>';
+  const sliderId = koleksiyon + 'Slider';
+  const kartlar = data.map((item, i) => {
+    const baslik = item.baslik || '—';
+    const icerik = item.icerik || '';
+    const fotoUrl = item.fotoUrl || '';
+    const tarih = (typeof tarihFormat !== 'undefined' ? tarihFormat : window.tarihFormat)(item.createdAt);
+    const _rol = (typeof mevcutRol !== 'undefined' ? mevcutRol : (window._mevcutRol_getter ? window._mevcutRol_getter() : null));
+    const silBtn = (_rol && ['admin','superAdmin'].includes(_rol))
+      ? `<button onclick="event.stopPropagation();icerikSil('${koleksiyon}','${item.id}',${koleksiyon==='haberler'?'haberlerYukle':'duyurularYukle'})" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.72rem;z-index:5">🗑️</button>` : '';
+    
+    if (fotoUrl) {
+      // Fotoğraflı kart — overlay stil
+      return `<div class="hkart" onclick="detayGosterFoto('${encodeURIComponent(baslik)}','${encodeURIComponent(icerik)}','${fotoUrl}')" style="position:relative">
+        ${silBtn}
+        <img class="hkart-foto" src="${fotoUrl}" alt="${baslik}" loading="lazy">
+        <div class="hkart-overlay">
+          <span class="hkart-etiket ${tip==='duyuru'?'duyuru':''}">${tip==='haber'?'📰 Haber':'📢 Duyuru'}</span>
+          <div class="hkart-baslik">${baslik}</div>
+          <div class="hkart-ozet">${icerik.substring(0,80)}${icerik.length>80?'...':''}</div>
+          <div class="hkart-meta">${tarih}</div>
+        </div>
+      </div>`;
+    } else {
+      // Fotoğrafsız kart
+      return `<div class="hkart" onclick="detayGosterFoto('${encodeURIComponent(baslik)}','${encodeURIComponent(icerik)}','')" style="position:relative">
+        ${silBtn}
+        <div class="hkart-foto-placeholder">${tip==='haber'?'📰':'📢'}</div>
+        <div class="hkart-icerik">
+          <span class="hkart-etiket ${tip==='duyuru'?'duyuru':''}">${tip==='haber'?'📰 Haber':'📢 Duyuru'}</span>
+          <div class="hkart-baslik">${baslik}</div>
+          <div class="hkart-ozet">${icerik.substring(0,100)}${icerik.length>100?'...':''}</div>
+          <div class="hkart-meta">${tarih}</div>
+        </div>
+      </div>`;
+    }
+  }).join('');
+
+  const dots = data.map((_,i) => 
+    `<button class="hkart-dot ${i===0?'aktif':''}" onclick="_sliderGit('${sliderId}',${i},true)"></button>`
+  ).join('');
+
+  return `<div id="${sliderId}Wrap" class="hkart-slider-wrap">
+    <div class="hkart-track" id="${sliderId}Track">${kartlar}</div>
+  </div>
+  <div class="hkart-nav">
+    <div class="hkart-dots" id="${sliderId}Dots">${dots}</div>
+    <div class="hkart-oklar">
+      <button class="hkart-ok" onclick="_sliderGit('${sliderId}',-1)">‹</button>
+      <span class="hkart-sayac" id="${sliderId}Sayac">1 / ${data.length}</span>
+      <button class="hkart-ok" onclick="_sliderGit('${sliderId}',1)">›</button>
+    </div>
+  </div>`;
+}
+
+function haberSliderBagla(sliderId, data, koleksiyon) {
+  _sliderState[sliderId] = { index: 0, total: data.length, timer: null };
+  if (data.length > 1) {
+    _sliderState[sliderId].timer = setInterval(() => _sliderGit(sliderId, 1), 5000);
+  }
+}
+
+window._sliderGit = (sliderId, yon, direkt=false) => {
+  const state = _sliderState[sliderId];
+  if (!state) return;
+  if (direkt) {
+    state.index = yon;
+  } else {
+    state.index = (state.index + yon + state.total) % state.total;
+  }
+  const track = document.getElementById(sliderId + 'Track');
+  if (track) track.style.transform = `translateX(-${state.index * 100}%)`;
+  const dots = document.querySelectorAll(`#${sliderId}Dots .hkart-dot`);
+  dots.forEach((d,i) => d.classList.toggle('aktif', i === state.index));
+  const sayac = document.getElementById(sliderId + 'Sayac');
+  if (sayac) sayac.textContent = `${state.index+1} / ${state.total}`;
+  // Timer sıfırla
+  if (!direkt) return;
+  if (state.timer) clearInterval(state.timer);
+  if (state.total > 1) state.timer = setInterval(() => _sliderGit(sliderId, 1), 5000);
+};
+
+// detayGosterFoto'yu güncelle - encoded başlık için
+window.detayGosterFoto = (baslikEnc, icerikEnc, fotoUrl) => {
+  const baslik = decodeURIComponent(baslikEnc);
+  const icerik = decodeURIComponent(icerikEnc);
+  const o = document.createElement('div');
+  o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
+  o.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:88vh;overflow-y:auto;position:relative">
+    <button onclick="this.closest('[style]').remove()" style="position:absolute;top:11px;right:13px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666;z-index:1">✕</button>
+    ${fotoUrl ? `<img src="${fotoUrl}" style="width:100%;max-height:320px;object-fit:cover;border-radius:12px 12px 0 0">` : ''}
+    <div style="padding:24px 28px">
+      <h2 style="font-family:'Playfair Display',serif;font-size:1.65rem;margin-bottom:14px;color:#5C3D1E">${baslik}</h2>
+      <div style="font-size:1rem;line-height:1.9;white-space:pre-wrap;color:#333">${icerik}</div>
+    </div>
+  </div>`;
+  o.addEventListener('click',e=>{if(e.target===o)o.remove();});
+  document.body.appendChild(o);
+};
+
+
+
 // ══════════════════════════════════════════════════
 // CLOUDINARY CONFIG
 // ══════════════════════════════════════════════════
@@ -1795,3 +1923,5 @@ window.sayfaGec = (sayfa, link) => {
 // Sayfa ilk açıldığında da yükle
 setTimeout(sliderYukle, 2000);
 </script>
+</body>
+</html>

@@ -1242,7 +1242,11 @@ async function duyurularYukle() {
   try {
     const snap = await getDocs(query(collection(db,'duyurular'),orderBy('createdAt','desc'),limit(20)));
     const liste = document.getElementById('duyuruListesi');
-    if (snap.empty) { liste.innerHTML='<p style="color:var(--gri);font-size:.86rem">Henüz duyuru yok.</p>'; document.getElementById('statDuyuru').textContent='0'; return; }
+    if (snap.empty) { liste.innerHTML='<p style="color:var(--gri);font-size:.88rem">Henüz duyuru yok.</p>'; return; }
+    const duyuruData = snap.docs.map(d=>({id:d.id,...d.data()}));
+    liste.innerHTML = haberSliderHTML(duyuruData, 'duyurular', 'duyuru');
+    haberSliderBagla('duyurularSlider', duyuruData, 'duyurular');
+    document.getElementById('statDuyuru').textContent = snap.size;.textContent='0'; return; }
     liste.innerHTML = snap.docs.map(d=>{
       const du=d.data();
       return `<div class="duyuru-kart" onclick="detayGoster('${du.baslik||''}','${encodeURIComponent(du.icerik||'')}')">
@@ -1292,39 +1296,82 @@ window.duyuruEkle = async () => {
 // ── VEFAT ──────────────────────────────────────────────
 async function vefatYukle() {
   try {
-    const snap = await getDocs(query(collection(db,'vefat'),orderBy('createdAt','desc'),limit(5)));
+    const snap = await getDocs(query(collection(db,'vefat'),orderBy('createdAt','desc')));
     const liste = document.getElementById('vefatListesi');
-    if (snap.empty) { liste.innerHTML='<p style="font-size:.84rem;color:var(--gri)">Vefat duyurusu yok.</p>'; return; }
-    liste.innerHTML = snap.docs.map(d=>{
+    const avd = document.getElementById('anasayfaVefat');
+    if (snap.empty) {
+      liste.innerHTML='<p style="font-size:.84rem;color:var(--gri)">Vefat duyurusu yok.</p>';
+      if(avd) avd.innerHTML='<p style="font-size:.84rem;color:var(--gri)">Vefat duyurusu yok.</p>';
+      return;
+    }
+    const isSA = mevcutRol === 'superAdmin';
+    const kartlar = snap.docs.map(d => {
+      const v = d.data();
+      const vid = d.id;
+      const canDelete = mevcutRol && ['admin','superAdmin'].includes(mevcutRol);
+      const silBtn = canDelete
+        ? (isSA
+            ? '<button data-sil="vefat" data-id="' + vid + '" style="padding:3px 9px;background:#7f1d1d;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:.76rem">Sil</button>'
+            : '<button data-siliste="vefat" data-id="' + vid + '" data-ad="' + (v.ad||'').replace(/"/g,'') + '" style="padding:3px 9px;background:#444;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:.76rem">Silme İste</button>')
+        : '';
+      let detay = '<div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:.85rem">';
+      if(v.vefatTarihi) detay += '<p>📅 <strong>Vefat:</strong> ' + tarihFormat(v.vefatTarihi) + '</p>';
+      if(v.yer) detay += '<p>📍 <strong>Vefat Yeri:</strong> ' + v.yer + '</p>';
+      if(v.namazYer) detay += '<p>🕌 <strong>Cenaze Namazı:</strong> ' + v.namazYer + '</p>';
+      if(v.namazSaat) detay += '<p>🕐 <strong>Namaz Saati:</strong> ' + v.namazSaat + '</p>';
+      if(v.defin) detay += '<p>⚰️ <strong>Defin:</strong> ' + v.defin + '</p>';
+      detay += '</div>';
+      let taziye = '';
+      if(v.taziyeAd || v.taziyeTel) {
+        taziye = '<div style="margin-top:10px;background:#fff0f0;border-radius:6px;padding:8px 12px;font-size:.84rem">'
+          + '<strong style="color:#7f1d1d">📞 Taziye İletişim:</strong>'
+          + (v.taziyeAd ? '<span style="margin-left:6px">' + v.taziyeAd + '</span>' : '')
+          + (v.taziyeTel ? ' — <a href="tel:' + v.taziyeTel + '" style="color:#991b1b;font-weight:700">' + v.taziyeTel + '</a>' : '')
+          + '</div>';
+      }
+      return '<div class="hkart" style="padding:16px;cursor:default">'
+        + '<div style="display:flex;justify-content:space-between;align-items:start">'
+        + '<div><h4 style="font-size:1.05rem;color:#7f1d1d">🕊️ ' + (v.ad||'—') + (v.yas ? ' <span style="font-size:.82rem;font-weight:400;color:#991b1b">(' + v.yas + ' yaşında)</span>' : '') + '</h4>'
+        + '<p style="font-style:italic;font-size:.82rem;color:#b91c1c;margin-top:2px">Allah rahmet eylesin, mekanı cennet olsun.</p></div>'
+        + silBtn + '</div>'
+        + detay + taziye
+        + (v.not ? '<p style="margin-top:8px;color:#444;font-size:.84rem;font-style:italic">' + v.not + '</p>' : '')
+        + '</div>';
+    });
+    // Slider
+    const sliderId = 'vefatSlider';
+    const dots = kartlar.map((_,i) => '<button class="hkart-dot' + (i===0?' aktif':'') + '" onclick="_sliderGit('' + sliderId + '',' + i + ',true)"></button>').join('');
+    liste.innerHTML = '<div id="' + sliderId + 'Wrap" class="hkart-slider-wrap"><div class="hkart-track" id="' + sliderId + 'Track">' + kartlar.join('') + '</div></div>'
+      + (kartlar.length > 1 ? '<div class="hkart-nav"><div class="hkart-dots" id="' + sliderId + 'Dots">' + dots + '</div><div class="hkart-oklar"><button class="hkart-ok" onclick="_sliderGit('' + sliderId + '',-1)">&#8249;</button><span class="hkart-sayac" id="' + sliderId + 'Sayac">1 / ' + kartlar.length + '</span><button class="hkart-ok" onclick="_sliderGit('' + sliderId + '',1)">&#8250;</button></div></div>' : '');
+    if (kartlar.length > 1 && window._sliderState) {
+      window._sliderState[sliderId] = {index:0, total:kartlar.length, timer:null};
+      window._sliderState[sliderId].timer = setInterval(() => window._sliderGit(sliderId,1), 6000);
+    }
+    // Event delegation - sil butonları
+    liste.querySelectorAll('[data-sil]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const kol = btn.getAttribute('data-sil');
+        const id = btn.getAttribute('data-id');
+        window._silveYenile(kol, id).then(() => vefatYukle());
+      });
+    });
+    liste.querySelectorAll('[data-siliste]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const kol = btn.getAttribute('data-siliste');
+        const id = btn.getAttribute('data-id');
+        const ad = btn.getAttribute('data-ad');
+        window._silIste(kol, id, ad);
+      });
+    });
+    // Anasayfa özet
+    if(avd) avd.innerHTML = snap.docs.slice(0,2).map(d=>{
       const v=d.data();
-      return `<div class="vefat-kart">
-        <div style="display:flex;justify-content:space-between;align-items:start">
-          <div>
-            <h4 style="font-size:1.05rem">🕊️ ${v.ad||'—'} ${v.yas?`<span style="font-size:.82rem;font-weight:400">(${v.yas} yaşında)</span>`:''}</h4>
-            <p style="font-style:italic;font-size:.82rem;color:#b91c1c;margin-top:2px">Allah rahmet eylesin, mekanı cennet olsun.</p>
-          </div>
-          ${mevcutRol&&['admin','superAdmin'].includes(mevcutRol)?`<button class="haber-sil" onclick="icerikSil('vefat','${d.id}',vefatYukle)">🗑</button>`:''}
-        </div>
-        <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:.85rem">
-          ${v.vefatTarihi?`<p>📅 <strong>Vefat:</strong> ${tarihFormat(v.vefatTarihi)}</p>`:''}
-          ${v.yer?`<p>📍 <strong>Vefat Yeri:</strong> ${v.yer}</p>`:''}
-          ${v.namazYer?`<p>🕌 <strong>Cenaze Namazı:</strong> ${v.namazYer}</p>`:''}
-          ${v.namazSaat?`<p>🕐 <strong>Namaz Saati:</strong> ${v.namazSaat}</p>`:''}
-          ${v.defin?`<p>⚰️ <strong>Defin:</strong> ${v.defin}</p>`:''}
-        </div>
-        ${v.taziyeAd||v.taziyeTel?`
-        <div style="margin-top:10px;background:#fff0f0;border-radius:6px;padding:8px 12px;font-size:.84rem">
-          <strong style="color:#7f1d1d">📞 Taziye İletişim:</strong>
-          ${v.taziyeAd?`<span style="margin-left:6px">${v.taziyeAd}</span>`:''}
-          ${v.taziyeTel?`— <a href="tel:${v.taziyeTel}" style="color:#991b1b;font-weight:700">${v.taziyeTel}</a>`:''}
-        </div>`:''}
-        ${v.not?`<p style="margin-top:8px;color:#444;font-size:.84rem;font-style:italic">${v.not}</p>`:''}
-      </div>`;
+      return '<div class="vefat-kart"><h4>🕊️ ' + (v.ad||'—') + '</h4><p>Vefat: ' + tarihFormat(v.vefatTarihi) + '</p></div>';
     }).join('');
   } catch(e) { console.error(e); }
 }
 
-window.vefatEkle = async () => {
+window.vefatEklewindow.vefatEkle = async () => {
   const ad        = document.getElementById('vefatAd').value.trim();
   const tarih     = document.getElementById('vefatTarih').value;
   const yas       = document.getElementById('vefatYas').value.trim();
@@ -1376,22 +1423,39 @@ function arsivRender() {
   );
   const liste = document.getElementById('arsivIcerik');
   if (!filtre.length) { liste.innerHTML='<p style="color:var(--gri)">Makale bulunamadı.</p>'; return; }
-  liste.innerHTML = filtre.map(a=>`
-    <div class="arsiv-kart" onclick="arsivDetay('${a.id}')">
-      <div class="arsiv-kart-ust">
-        <div class="arsiv-ikon">${arsivIkon[a.kategori]||'📁'}</div>
-        <div><h3>${a.baslik||'Başlıksız'}</h3><p>${a.kategori||'Genel'}</p></div>
-      </div>
-      <p>${(a.icerik||'').substring(0,120)}${(a.icerik||'').length>120?'...':''}</p>
-      <div class="arsiv-meta">
-        <span>📂 ${a.kategori||'—'}</span>
-        <span>✏️ ${tarihFormat(a.createdAt)}</span>
-        <span>👁 ${a.goruntuleme||0}</span>
-        ${mevcutRol&&['admin','superAdmin'].includes(mevcutRol)?`<span onclick="event.stopPropagation();icerikSil('arsiv','${a.id}',arsivYukle)" style="background:#fee2e2;color:#991b1b;cursor:pointer">🗑️ Sil</span>`:''}
-      </div>
-    </div>`).join('');
+  const isSA = mevcutRol === 'superAdmin';
+  const isAdmin = mevcutRol && ['admin','superAdmin'].includes(mevcutRol);
+  liste.innerHTML = filtre.map(a => {
+    const silSpan = isAdmin
+      ? (isSA
+          ? '<span data-sil="arsiv" data-id="' + a.id + '" style="background:#fee2e2;color:#991b1b;cursor:pointer;font-family:JetBrains Mono,monospace;font-size:.7rem;padding:2px 8px;border-radius:20px">🗑️ Sil</span>'
+          : '<span data-siliste="arsiv" data-id="' + a.id + '" data-ad="' + (a.baslik||'').replace(/"/g,'') + '" style="background:#fee2e2;color:#991b1b;cursor:pointer;font-family:JetBrains Mono,monospace;font-size:.7rem;padding:2px 8px;border-radius:20px">🗑️ Sil İste</span>')
+      : '';
+    return '<div class="arsiv-kart" data-arsiv-id="' + a.id + '">'
+      + '<div class="arsiv-kart-ust">'
+      + '<div class="arsiv-ikon">' + (arsivIkon[a.kategori]||'📁') + '</div>'
+      + '<div><h3>' + (a.baslik||'Başlıksız') + '</h3><p>' + (a.kategori||'Genel') + '</p></div>'
+      + '</div>'
+      + '<p>' + (a.icerik||'').substring(0,120) + ((a.icerik||'').length>120?'...':'') + '</p>'
+      + '<div class="arsiv-meta">'
+      + '<span>📂 ' + (a.kategori||'—') + '</span>'
+      + '<span>✏️ ' + tarihFormat(a.createdAt) + '</span>'
+      + '<span>👁 ' + (a.goruntuleme||0) + '</span>'
+      + silSpan
+      + '</div></div>';
+  }).join('');
+  // Event delegation
+  liste.addEventListener('click', function handler(e) {
+    // Sil
+    const silEl = e.target.closest('[data-sil]');
+    if (silEl) { e.stopPropagation(); window._silveYenile(silEl.dataset.sil, silEl.dataset.id).then(()=>arsivYukle()); return; }
+    const silIsteEl = e.target.closest('[data-siliste]');
+    if (silIsteEl) { e.stopPropagation(); window._silIste(silIsteEl.dataset.siliste, silIsteEl.dataset.id, silIsteEl.dataset.ad); return; }
+    // Kart aç
+    const kart = e.target.closest('[data-arsiv-id]');
+    if (kart) arsivDetay(kart.dataset.arsivId);
+  }, {once: true});
 }
-
 window.arsivFiltrele = () => arsivRender();
 window.arsivKatSec = (kat, btn) => {
   aktifArsivKat = kat;
@@ -1405,22 +1469,24 @@ window.arsivDetay = async (id) => {
   const a = tumArsiv.find(x=>x.id===id); if(!a) return;
   try { await updateDoc(doc(db,'arsiv',id),{goruntuleme:(a.goruntuleme||0)+1}); } catch(e){}
   const o = document.createElement('div');
-  o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
   o.setAttribute('data-popup','1');
-  o.addEventListener('click',e=>{if(e.target===o)o.remove();});
-  o.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:780px;width:100%;max-height:88vh;overflow-y:auto;padding:32px;position:relative">
-    <button onclick="document.querySelectorAll('[data-popup]').forEach(el=>el.remove())" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666">✕</button>
-    <div style="font-size:1.3rem;margin-bottom:7px">${arsivIkon[a.kategori]||'📁'}</div>
-    <h2 style="font-family:'Playfair Display',serif;font-size:1.75rem;margin-bottom:7px;color:#5C3D1E">${a.baslik}</h2>
-    <p style="color:#888;font-size:.83rem;margin-bottom:16px;border-bottom:1px solid #eee;padding-bottom:11px">
-      ${a.kategori} • ${tarihFormat(a.createdAt)} • ${a.yazarAd||'Admin'}
-      ${a.etiket?.length?' • '+a.etiket.join(', '):''}
-    </p>
-    <div style="font-size:1rem;line-height:1.95;white-space:pre-wrap">${a.icerik}</div>
-  </div>`;
-  o.addEventListener('click',e=>{if(e.target===o)aKapat();});
+  o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
+  const kapat = () => o.remove();
+  o.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:780px;width:100%;max-height:88vh;overflow-y:auto;position:relative">'
+    + '<button id="arsivKapatBtn" style="position:absolute;top:12px;right:14px;background:rgba(0,0,0,.06);border:none;font-size:1.3rem;cursor:pointer;color:#333;width:32px;height:32px;border-radius:50%">✕</button>'
+    + '<div style="padding:32px">'
+    + '<div style="font-size:1.3rem;margin-bottom:7px">' + (arsivIkon[a.kategori]||'📁') + '</div>'
+    + '<h2 style="font-family:'Playfair Display',serif;font-size:1.75rem;margin-bottom:7px;color:#5C3D1E">' + (a.baslik||'') + '</h2>'
+    + '<p style="color:#888;font-size:.83rem;margin-bottom:16px;border-bottom:1px solid #eee;padding-bottom:11px">'
+    + (a.kategori||'') + ' • ' + tarihFormat(a.createdAt) + ' • ' + (a.yazarAd||'Admin')
+    + (a.etiket?.length ? ' • ' + a.etiket.join(', ') : '')
+    + '</p>'
+    + '<div style="font-size:1rem;line-height:1.95;white-space:pre-wrap">' + (a.icerik||'') + '</div>'
+    + '</div></div>';
+  o.addEventListener('click', e => { if(e.target===o) kapat(); });
   document.body.appendChild(o);
-  document.getElementById(apid+'_k')?.addEventListener('click',aKapat);
+  document.getElementById('arsivKapatBtn').addEventListener('click', kapat);
+  document.addEventListener('keydown', function esc(e){ if(e.key==='Escape'){kapat();document.removeEventListener('keydown',esc);}});
 };
 
 window.arsivEkle = async () => {
@@ -1626,44 +1692,31 @@ async function adminIceriklerYukle() {
   const hSnap = await getDocs(query(collection(db,'haberler'),orderBy('createdAt','desc')));
   document.getElementById('icerikTablo').innerHTML = hSnap.docs.map(d=>{
     const h = d.data();
-    const hid = d.id;
-    const htitle = (h.baslik||'').replace(/\'/g,'').replace(/"/g,'');
-    let btn;
-    if (isSA) {
-      btn = '<button class="abtn abtn-sil" onclick="_silveYenile(\'haberler\',\'' + hid + '\')">Sil</button>';
-    } else {
-      btn = '<button class="abtn" style="background:#555;color:#ccc" onclick="_silIste(\'haberler\',\'' + hid + '\',\'' + htitle + '\')">Silme İste</button>';
-    }
+    const btn = isSA
+      ? '<button class="abtn abtn-sil" data-sil="haberler" data-id="' + d.id + '">Sil</button>'
+      : '<button class="abtn" style="background:#555;color:#ccc" data-siliste="haberler" data-id="' + d.id + '" data-ad="' + (h.baslik||'').replace(/"/g,'') + '">Silme İste</button>';
     return '<tr><td>' + (h.baslik||'—') + '</td><td>Haber</td><td>' + tarihFormat(h.createdAt) + '</td><td>' + btn + '</td></tr>';
   }).join('') || '<tr><td colspan="4" style="color:#666">Yok.</td></tr>';
-
   const aSnap = await getDocs(query(collection(db,'arsiv'),orderBy('createdAt','desc')));
   document.getElementById('arsivTablo').innerHTML = aSnap.docs.map(d=>{
     const a = d.data();
-    const aid = d.id;
-    const atitle = (a.baslik||'').replace(/\'/g,'').replace(/"/g,'');
-    let btn2;
-    if (isSA) {
-      btn2 = '<button class="abtn abtn-sil" onclick="_silveYenile(\'arsiv\',\'' + aid + '\')">Sil</button>';
-    } else {
-      btn2 = '<button class="abtn" style="background:#555;color:#ccc" onclick="_silIste(\'arsiv\',\'' + aid + '\',\'' + atitle + '\')">Silme İste</button>';
-    }
+    const btn2 = isSA
+      ? '<button class="abtn abtn-sil" data-sil="arsiv" data-id="' + d.id + '">Sil</button>'
+      : '<button class="abtn" style="background:#555;color:#ccc" data-siliste="arsiv" data-id="' + d.id + '" data-ad="' + (a.baslik||'').replace(/"/g,'') + '">Silme İste</button>';
     return '<tr><td>' + (a.baslik||'—') + '</td><td>' + (a.kategori||'—') + '</td><td>' + tarihFormat(a.createdAt) + '</td><td>' + btn2 + '</td></tr>';
   }).join('') || '<tr><td colspan="4" style="color:#666">Yok.</td></tr>';
+  // Event delegation tablolar için
+  ['icerikTablo','arsivTablo'].forEach(tid => {
+    document.getElementById(tid)?.addEventListener('click', async e => {
+      const silBtn = e.target.closest('[data-sil]');
+      if (silBtn) { await window._silveYenile(silBtn.dataset.sil, silBtn.dataset.id); adminIceriklerYukle(); return; }
+      const siIsteBtn = e.target.closest('[data-siliste]');
+      if (siIsteBtn) { window._silIste(siIsteBtn.dataset.siliste, siIsteBtn.dataset.id, siIsteBtn.dataset.ad); }
+    }, {once:true});
+  });
 }
 
-window._silveYenile = async (koleksiyon, id) => {
-  if (!confirm('Silmek istediğinizden emin misiniz?')) return;
-  try {
-    await deleteDoc(doc(db, koleksiyon, id));
-    bildirimGoster('Silindi.','bilgi');
-    adminIceriklerYukle();
-    if (koleksiyon === 'haberler') { haberlerYukle && haberlerYukle(); }
-    if (koleksiyon === 'arsiv') { arsivYukle && arsivYukle(); }
-  } catch(e) { bildirimGoster('Hata: ' + e.message, 'hata'); }
-};
-
-window._silIste = async (koleksiyon, id, baslik) => {
+window._silIste = asyncwindow._silIste = async (koleksiyon, id, baslik) => {
   if (!confirm('"' + baslik + '" silme isteği onaya gönderilecek. Devam?')) return;
   try {
     const ud = await getDoc(doc(db,'users',mevcutKullanici.uid));
@@ -1736,6 +1789,7 @@ window.bolumKay = (id) => {
 </script>
 
 <script>
+
 // ══════════════════════════════════════════════════
 // HABER & DUYURU SLIDER SİSTEMİ
 // ══════════════════════════════════════════════════
@@ -1744,63 +1798,106 @@ const _sliderState = {};
 function haberSliderHTML(data, koleksiyon, tip) {
   if (!data.length) return '<p style="color:var(--gri);font-size:.86rem;padding:8px 0">Henüz içerik yok.</p>';
   const sliderId = koleksiyon + 'Slider';
+  const _rol = window._mevcutRol_getter ? window._mevcutRol_getter() : null;
+  const isSA = _rol === 'superAdmin';
   const kartlar = data.map((item, i) => {
-    const baslik = item.baslik || '—';
-    const icerik = item.icerik || '';
-    const fotoUrl = item.fotoUrl || '';
-    const tarih = (typeof tarihFormat !== 'undefined' ? tarihFormat : window.tarihFormat)(item.createdAt);
-    const _rol = (typeof mevcutRol !== 'undefined' ? mevcutRol : (window._mevcutRol_getter ? window._mevcutRol_getter() : null));
-    const silBtn = (_rol && ['admin','superAdmin'].includes(_rol))
-      ? `<button onclick="event.stopPropagation();icerikSil('${koleksiyon}','${item.id}',${koleksiyon==='haberler'?'haberlerYukle':'duyurularYukle'})" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.5);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.72rem;z-index:5">🗑️</button>` : '';
-    
-    if (fotoUrl) {
-      // Fotoğraflı kart — overlay stil
-      return `<div class="hkart" onclick="detayGosterFoto('${encodeURIComponent(baslik)}','${encodeURIComponent(icerik)}','${fotoUrl}')" style="position:relative">
-        ${silBtn}
-        <img class="hkart-foto" src="${fotoUrl}" alt="${baslik}" loading="lazy">
-        <div class="hkart-overlay">
-          <span class="hkart-etiket ${tip==='duyuru'?'duyuru':''}">${tip==='haber'?'📰 Haber':'📢 Duyuru'}</span>
-          <div class="hkart-baslik">${baslik}</div>
-          <div class="hkart-ozet">${icerik.substring(0,80)}${icerik.length>80?'...':''}</div>
-          <div class="hkart-meta">${tarih}</div>
-        </div>
-      </div>`;
-    } else {
-      // Fotoğrafsız kart
-      return `<div class="hkart" onclick="detayGosterFoto('${encodeURIComponent(baslik)}','${encodeURIComponent(icerik)}','')" style="position:relative">
-        ${silBtn}
-        <div class="hkart-foto-placeholder">${tip==='haber'?'📰':'📢'}</div>
-        <div class="hkart-icerik">
-          <span class="hkart-etiket ${tip==='duyuru'?'duyuru':''}">${tip==='haber'?'📰 Haber':'📢 Duyuru'}</span>
-          <div class="hkart-baslik">${baslik}</div>
-          <div class="hkart-ozet">${icerik.substring(0,100)}${icerik.length>100?'...':''}</div>
-          <div class="hkart-meta">${tarih}</div>
-        </div>
-      </div>`;
+    const baslik = (item.baslik || '—').replace(/"/g, '&quot;');
+    const icerikEnc = encodeURIComponent(item.icerik || '');
+    const baslikEnc = encodeURIComponent(item.baslik || '');
+    const fotoUrl = (item.fotoUrl || '').replace(/"/g, '');
+    const tarihStr = (window.tarihFormat || tarihFormat)(item.createdAt);
+    const itemId = item.id || '';
+
+    let silBtn = '';
+    if (_rol && ['admin','superAdmin'].includes(_rol)) {
+      if (isSA) {
+        silBtn = '<button data-sil="' + koleksiyon + '" data-id="' + itemId + '" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.72rem;z-index:5">🗑️</button>';
+      } else {
+        silBtn = '<button data-siliste="' + koleksiyon + '" data-id="' + itemId + '" data-ad="' + baslik.replace(/'/g,'') + '" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.72rem;z-index:5">🗑️</button>';
+      }
     }
+
+    const kart = fotoUrl
+      ? '<div class="hkart" data-baslik="' + baslikEnc + '" data-icerik="' + icerikEnc + '" data-foto="' + fotoUrl + '" style="position:relative;cursor:pointer">'
+        + silBtn
+        + '<img class="hkart-foto" src="' + fotoUrl + '" alt="' + baslik + '" loading="lazy">'
+        + '<div class="hkart-overlay">'
+        + '<span class="hkart-etiket' + (tip==='duyuru'?' duyuru':'') + '">' + (tip==='haber'?'📰 Haber':'📢 Duyuru') + '</span>'
+        + '<div class="hkart-baslik">' + baslik + '</div>'
+        + '<div class="hkart-ozet">' + (item.icerik||'').substring(0,80) + ((item.icerik||'').length>80?'...':'') + '</div>'
+        + '<div class="hkart-meta">' + tarihStr + '</div>'
+        + '</div></div>'
+      : '<div class="hkart" data-baslik="' + baslikEnc + '" data-icerik="' + icerikEnc + '" data-foto="" style="position:relative;cursor:pointer">'
+        + silBtn
+        + '<div class="hkart-foto-placeholder">' + (tip==='haber'?'📰':'📢') + '</div>'
+        + '<div class="hkart-icerik">'
+        + '<span class="hkart-etiket' + (tip==='duyuru'?' duyuru':'') + '">' + (tip==='haber'?'📰 Haber':'📢 Duyuru') + '</span>'
+        + '<div class="hkart-baslik">' + baslik + '</div>'
+        + '<div class="hkart-ozet">' + (item.icerik||'').substring(0,100) + ((item.icerik||'').length>100?'...':'') + '</div>'
+        + '<div class="hkart-meta">' + tarihStr + '</div>'
+        + '</div></div>';
+    return kart;
   }).join('');
 
-  const dots = data.map((_,i) => 
-    `<button class="hkart-dot ${i===0?'aktif':''}" onclick="_sliderGit('${sliderId}',${i},true)"></button>`
+  const dots = data.map((_,i) =>
+    '<button class="hkart-dot' + (i===0?' aktif':'') + '" data-slider="' + sliderId + '" data-idx="' + i + '"></button>'
   ).join('');
 
-  return `<div id="${sliderId}Wrap" class="hkart-slider-wrap">
-    <div class="hkart-track" id="${sliderId}Track">${kartlar}</div>
-  </div>
-  <div class="hkart-nav">
-    <div class="hkart-dots" id="${sliderId}Dots">${dots}</div>
-    <div class="hkart-oklar">
-      <button class="hkart-ok" onclick="_sliderGit('${sliderId}',-1)">‹</button>
-      <span class="hkart-sayac" id="${sliderId}Sayac">1 / ${data.length}</span>
-      <button class="hkart-ok" onclick="_sliderGit('${sliderId}',1)">›</button>
-    </div>
-  </div>`;
+  return '<div id="' + sliderId + 'Wrap" class="hkart-slider-wrap">'
+    + '<div class="hkart-track" id="' + sliderId + 'Track">' + kartlar + '</div>'
+    + '</div>'
+    + (data.length > 1
+      ? '<div class="hkart-nav">'
+        + '<div class="hkart-dots" id="' + sliderId + 'Dots">' + dots + '</div>'
+        + '<div class="hkart-oklar">'
+        + '<button class="hkart-ok" data-slider="' + sliderId + '" data-yon="-1">&#8249;</button>'
+        + '<span class="hkart-sayac" id="' + sliderId + 'Sayac">1 / ' + data.length + '</span>'
+        + '<button class="hkart-ok" data-slider="' + sliderId + '" data-yon="1">&#8250;</button>'
+        + '</div></div>'
+      : '');
 }
 
 function haberSliderBagla(sliderId, data, koleksiyon) {
   _sliderState[sliderId] = { index: 0, total: data.length, timer: null };
   if (data.length > 1) {
     _sliderState[sliderId].timer = setInterval(() => _sliderGit(sliderId, 1), 5000);
+  }
+  // Event delegation - kartlara tıklama + silme
+  const wrap = document.getElementById(sliderId + 'Wrap');
+  if (wrap) {
+    wrap.addEventListener('click', function(e) {
+      // Sil butonu
+      const silBtn = e.target.closest('[data-sil]');
+      if (silBtn) {
+        e.stopPropagation();
+        window._silveYenile(silBtn.dataset.sil, silBtn.dataset.id).then(() => {
+          if (koleksiyon==='haberler' && window.haberlerYukle) window.haberlerYukle();
+          if (koleksiyon==='duyurular' && window.duyurularYukle) window.duyurularYukle();
+        });
+        return;
+      }
+      const silIsteBtn = e.target.closest('[data-siliste]');
+      if (silIsteBtn) {
+        e.stopPropagation();
+        window._silIste(silIsteBtn.dataset.siliste, silIsteBtn.dataset.id, silIsteBtn.dataset.ad);
+        return;
+      }
+      // Kart tıklama - detay popup
+      const kart = e.target.closest('[data-baslik]');
+      if (kart) {
+        window.detayGosterFoto(kart.dataset.baslik, kart.dataset.icerik, kart.dataset.foto || '');
+      }
+    });
+  }
+  // Dots ve oklar event delegation
+  const nav = wrap?.nextElementSibling;
+  if (nav) {
+    nav.addEventListener('click', function(e) {
+      const dot = e.target.closest('[data-slider][data-idx]');
+      if (dot) { _sliderGit(dot.dataset.slider, parseInt(dot.dataset.idx), true); return; }
+      const ok = e.target.closest('[data-slider][data-yon]');
+      if (ok) { _sliderGit(ok.dataset.slider, parseInt(ok.dataset.yon)); }
+    });
   }
 }
 
@@ -1996,10 +2093,17 @@ function sliderOlustur() {
       <button class="slider-btn slider-next" onclick="sliderGit(1)">›</button>
     </div>
     <div class="slider-dots" id="sliderDots">
-      ${sliderFotolar.map((_,i) => `<button class="slider-dot ${i===0?'aktif':''}" onclick="sliderGitDirekt(${i})"></button>`).join('')}
+      ${sliderFotolar.map((_,i) => `<button class="slider-dot ${i===0?'aktif':''}" data-dot-idx="${i}"></button>`).join('')}
     </div>
   `;
 
+  // dot click
+  document.querySelectorAll('#sliderWrap ~ * .slider-dot, .slider-dot').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.getAttribute('data-dot-idx') || btn.getAttribute('data-idx') || 0);
+      sliderGitDirekt(idx);
+    });
+  });
   // Otomatik geçiş
   if (sliderTimer) clearInterval(sliderTimer);
   sliderTimer = setInterval(() => sliderGit(1), 4000);

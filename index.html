@@ -1242,26 +1242,16 @@ async function duyurularYukle() {
   try {
     const snap = await getDocs(query(collection(db,'duyurular'),orderBy('createdAt','desc'),limit(20)));
     const liste = document.getElementById('duyuruListesi');
-    if (snap.empty) { liste.innerHTML='<p style="color:var(--gri);font-size:.88rem">Henüz duyuru yok.</p>'; return; }
+    if (snap.empty) {
+      liste.innerHTML='<p style="color:var(--gri);font-size:.88rem">Henüz duyuru yok.</p>';
+      document.getElementById('statDuyuru').textContent='0';
+      return;
+    }
     const duyuruData = snap.docs.map(d=>({id:d.id,...d.data()}));
     liste.innerHTML = haberSliderHTML(duyuruData, 'duyurular', 'duyuru');
     haberSliderBagla('duyurularSlider', duyuruData, 'duyurular');
-    document.getElementById('statDuyuru').textContent = snap.size;.textContent='0'; return; }
-    liste.innerHTML = snap.docs.map(d=>{
-      const du=d.data();
-      return `<div class="duyuru-kart" onclick="detayGoster('${du.baslik||''}','${encodeURIComponent(du.icerik||'')}')">
-        <div style="display:flex;justify-content:space-between;align-items:start">
-          <h4>${turIkon[du.tur]||'📢'} ${du.baslik||'—'}</h4>
-          ${mevcutRol&&['admin','superAdmin'].includes(mevcutRol)?`<button class="haber-sil" onclick="event.stopPropagation();icerikSil('duyurular','${d.id}',duyurularYukle)">🗑</button>`:''}
-        </div>
-        <p>${(du.icerik||'').substring(0,100)}${(du.icerik||'').length>100?'...':''}</p>
-        ${du.fotoUrl?`<img src="${du.fotoUrl}" style="width:100%;max-height:160px;object-fit:cover;border-radius:6px;margin:8px 0" loading="lazy">`:''}
-        ${du.tarih?`<p style="font-size:.78rem;color:var(--toprak);margin-top:5px;font-weight:600">📅 ${du.tarih}${du.yer?' 📍 '+du.yer:''}</p>`:''}
-        <p style="font-size:.74rem;color:#aaa;margin-top:4px">${tarihFormat(du.createdAt)}</p>
-      </div>`;
-    }).join('');
     document.getElementById('statDuyuru').textContent = snap.size;
-  } catch(e) { console.error(e); }
+  } catch(e) { console.error('duyurularYukle:', e); }
 }
 
 window.duyuruEkle = async () => {

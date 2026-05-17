@@ -554,7 +554,7 @@ footer{background:var(--toprak-koyu);color:var(--krem);padding:34px 28px 16px;}
 
   <!-- LİGHTBOX -->
   <div class="lightbox" id="lightbox" onclick="lightboxKapat()">
-    <button class="lightbox-kapat">✕</button>
+    <button class="lightbox-kapat" onclick="document.getElementById('lightbox').classList.remove('ac')">✕</button>
     <img id="lightboxImg" src="" alt="">
   </div>
 
@@ -709,7 +709,18 @@ footer{background:var(--toprak-koyu);color:var(--krem);padding:34px 28px 16px;}
             <div class="admin-stat"><div class="sayi" id="aStatMesaj">—</div><div class="label">Bekleyen Mesaj</div></div>
             <div class="admin-stat"><div class="sayi" id="aStatBanli">—</div><div class="label">Banlı</div></div>
           </div>
-          <div class="admin-kart">
+          <div class="admin-kart" style="margin-bottom:16px">
+            <h3>👤 Köy Muhtarı Bilgileri</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+              <div><label style="display:block;font-size:.78rem;color:#888;margin-bottom:4px">Ad Soyad</label>
+              <input class="admin-input" id="muhtarAd" placeholder="Muhtar adı..." style="margin:0"></div>
+              <div><label style="display:block;font-size:.78rem;color:#888;margin-bottom:4px">Telefon</label>
+              <input class="admin-input" id="muhtarTel" placeholder="0xxx xxx xx xx" style="margin:0"></div>
+            </div>
+            <button class="abtn-ekle" onclick="muhtarKaydet()">💾 Kaydet</button>
+            <span id="muhtarKayitDurum" style="margin-left:10px;font-size:.82rem;color:#4ade80"></span>
+          </div>
+        <div class="admin-kart">
             <h3>⚡ Hızlı İşlemler</h3>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
               <button onclick="adminSekme('kullanicilar',null)" style="padding:12px;background:#2a2a2a;color:#ddd;border:1px solid #444;border-radius:6px;cursor:pointer;font-family:inherit;font-size:.86rem">👥 Kullanıcı Onayla</button>
@@ -833,7 +844,8 @@ footer{background:var(--toprak-koyu);color:var(--krem);padding:34px 28px 16px;}
     </div>
     <div class="footer-kol">
       <h4>İletişim</h4>
-      <a>Köy Muhtarı</a>
+      <a id="footerMuhtarAd">Köy Muhtarı</a>
+      <a id="footerMuhtarTel"></a>
       <a>Nevşehir, Türkiye</a>
       <a>Acil: 112 / 155</a>
     </div>
@@ -1108,8 +1120,9 @@ window.sifreSifirla = async () => {
   catch(e) { modalHataGoster('Hata: '+e.message); }
 };
 // Cloudinary yükleme fonksiyonunu global yap
-// tarihFormat global
+// Fonksiyonları global expose et
 window.tarihFormat = tarihFormat;
+window._setDoc = setDoc;
 window._mevcutRol_getter = () => mevcutRol;
 
 window.cloudinaryYukle = async (file, klasor='galeri') => {
@@ -1336,8 +1349,10 @@ window.arsivDetay = async (id) => {
   try { await updateDoc(doc(db,'arsiv',id),{goruntuleme:(a.goruntuleme||0)+1}); } catch(e){}
   const o = document.createElement('div');
   o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
+  o.setAttribute('data-popup','1');
+  o.addEventListener('click',e=>{if(e.target===o)o.remove();});
   o.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:780px;width:100%;max-height:88vh;overflow-y:auto;padding:32px;position:relative">
-    <button onclick="this.closest('[style]').remove()" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666">✕</button>
+    <button onclick="document.querySelectorAll('[data-popup]').forEach(el=>el.remove())" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666">✕</button>
     <div style="font-size:1.3rem;margin-bottom:7px">${arsivIkon[a.kategori]||'📁'}</div>
     <h2 style="font-family:'Playfair Display',serif;font-size:1.75rem;margin-bottom:7px;color:#5C3D1E">${a.baslik}</h2>
     <p style="color:#888;font-size:.83rem;margin-bottom:16px;border-bottom:1px solid #eee;padding-bottom:11px">
@@ -1346,8 +1361,9 @@ window.arsivDetay = async (id) => {
     </p>
     <div style="font-size:1rem;line-height:1.95;white-space:pre-wrap">${a.icerik}</div>
   </div>`;
-  o.addEventListener('click',e=>{if(e.target===o)o.remove();});
+  o.addEventListener('click',e=>{if(e.target===o)aKapat();});
   document.body.appendChild(o);
+  document.getElementById(apid+'_k')?.addEventListener('click',aKapat);
 };
 
 window.arsivEkle = async () => {
@@ -1453,26 +1469,16 @@ window.icerikSil = async (koleksiyon, id, yenileFunc) => {
 };
 
 // ── DETAY POPUP ────────────────────────────────────────
-window.detayGosterFoto = (baslik, icerikEnc, fotoUrl) => {
-  const icerik = decodeURIComponent(icerikEnc);
-  const o = document.createElement('div');
-  o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
-  o.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:88vh;overflow-y:auto;padding:30px;position:relative">
-    <button onclick="this.closest('[style]').remove()" style="position:absolute;top:11px;right:13px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666">✕</button>
-    ${fotoUrl ? `<img src="${fotoUrl}" style="width:100%;max-height:300px;object-fit:cover;border-radius:8px;margin-bottom:18px">` : ''}
-    <h2 style="font-family:'Playfair Display',serif;font-size:1.65rem;margin-bottom:16px;color:#5C3D1E">${baslik}</h2>
-    <div style="font-size:1rem;line-height:1.9;white-space:pre-wrap">${icerik}</div>
-  </div>`;
-  o.addEventListener('click',e=>{if(e.target===o)o.remove();});
-  document.body.appendChild(o);
-};
+// detayGosterFoto yukarıda tanımlandı
 
 window.detayGoster = (baslik, icerikEnc) => {
   const icerik = decodeURIComponent(icerikEnc);
   const o = document.createElement('div');
   o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
+  o.setAttribute('data-popup','1');
+  o.addEventListener('click',e=>{if(e.target===o)o.remove();});
   o.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:85vh;overflow-y:auto;padding:30px;position:relative">
-    <button onclick="this.closest('[style]').remove()" style="position:absolute;top:11px;right:13px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666">✕</button>
+    <button onclick="document.querySelectorAll('[data-popup]').forEach(el=>el.remove())" style="position:absolute;top:11px;right:13px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666">✕</button>
     <h2 style="font-family:'Playfair Display',serif;font-size:1.65rem;margin-bottom:16px;color:#5C3D1E">${baslik}</h2>
     <div style="font-size:1rem;line-height:1.9;white-space:pre-wrap">${icerik}</div>
   </div>`;
@@ -1719,8 +1725,10 @@ window.detayGosterFoto = (baslikEnc, icerikEnc, fotoUrl) => {
   const icerik = decodeURIComponent(icerikEnc);
   const o = document.createElement('div');
   o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
+  o.setAttribute('data-popup','1');
+  o.addEventListener('click',e=>{if(e.target===o)o.remove();});
   o.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:88vh;overflow-y:auto;position:relative">
-    <button onclick="this.closest('[style]').remove()" style="position:absolute;top:11px;right:13px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666;z-index:1">✕</button>
+    <button onclick="document.querySelectorAll('[data-popup]').forEach(el=>el.remove())" style="position:absolute;top:11px;right:13px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666;z-index:1">✕</button>
     ${fotoUrl ? `<img src="${fotoUrl}" style="width:100%;max-height:320px;object-fit:cover;border-radius:12px 12px 0 0">` : ''}
     <div style="padding:24px 28px">
       <h2 style="font-family:'Playfair Display',serif;font-size:1.65rem;margin-bottom:14px;color:#5C3D1E">${baslik}</h2>
@@ -1840,7 +1848,12 @@ window.lightboxAc = (url) => {
 window.lightboxKapat = () => {
   document.getElementById('lightbox').classList.remove('ac');
 };
-document.addEventListener('keydown', e => { if(e.key==='Escape') lightboxKapat(); });
+document.addEventListener('keydown', e => { 
+  if(e.key==='Escape') { 
+    lightboxKapat(); 
+    document.querySelectorAll('[data-popup]').forEach(el=>el.remove());
+  }
+});
 </script>
 <script>
 // ══════════════════════════════════════════════════
@@ -1922,6 +1935,68 @@ window.sayfaGec = (sayfa, link) => {
 
 // Sayfa ilk açıldığında da yükle
 setTimeout(sliderYukle, 2000);
+</script>
+
+<script>
+// ══════════════════════════════════════════════════
+// SWIPE DESTEĞİ (Dokunmatik ekran)
+// ══════════════════════════════════════════════════
+function swipeEkle(elementId, sliderId) {
+  let startX = 0;
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, {passive:true});
+  el.addEventListener('touchend', e => {
+    const diff = startX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) window._sliderGit(sliderId, diff > 0 ? 1 : -1);
+  }, {passive:true});
+}
+
+// Slider'lar yüklenince swipe ekle
+function swipeleriKur() {
+  swipeEkle('haberlerSliderWrap', 'haberlerSlider');
+  swipeEkle('duyurularSliderWrap', 'duyurularSlider');
+}
+setTimeout(swipeleriKur, 2000);
+
+// ══════════════════════════════════════════════════
+// MUHTAR BİLGİLERİ
+// ══════════════════════════════════════════════════
+async function muhtarYukle() {
+  try {
+    if (!window._getDoc || !window._doc || !window._db) {
+      setTimeout(muhtarYukle, 1000); return;
+    }
+    const snap = await window._getDoc(window._doc(window._db, 'ayarlar', 'muhtar'));
+    if (snap.exists()) {
+      const d = snap.data();
+      const adEl = document.getElementById('footerMuhtarAd');
+      const telEl = document.getElementById('footerMuhtarTel');
+      if (adEl) adEl.textContent = d.ad || 'Köy Muhtarı';
+      if (telEl) { telEl.textContent = d.tel || ''; if(d.tel) telEl.href='tel:'+d.tel; }
+      // Admin input'larını doldur
+      const adInput = document.getElementById('muhtarAd');
+      const telInput = document.getElementById('muhtarTel');
+      if (adInput) adInput.value = d.ad || '';
+      if (telInput) telInput.value = d.tel || '';
+    }
+  } catch(e) { console.error('Muhtar yüklenemedi:', e); }
+}
+setTimeout(muhtarYukle, 1500);
+
+window.muhtarKaydet = async () => {
+  const ad = document.getElementById('muhtarAd')?.value.trim();
+  const tel = document.getElementById('muhtarTel')?.value.trim();
+  if (!ad) { bildirimGoster('Ad Soyad zorunludur.','hata'); return; }
+  try {
+    await window._setDoc(window._doc(window._db,'ayarlar','muhtar'), {ad, tel, guncellendi: new Date()});
+    document.getElementById('muhtarKayitDurum').textContent = '✓ Kaydedildi!';
+    setTimeout(() => { const el=document.getElementById('muhtarKayitDurum'); if(el)el.textContent=''; }, 3000);
+    muhtarYukle();
+    bildirimGoster('Muhtar bilgileri güncellendi!','basari');
+  } catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
+};
+
 </script>
 </body>
 </html>

@@ -715,7 +715,7 @@ footer{background:var(--toprak-koyu);color:var(--krem);padding:34px 28px 16px;}
         <a id="menuKullanicilar" onclick="adminSekme('kullanicilar',this)" style="display:none">👥 Kullanıcılar</a>
         <a onclick="adminSekme('mesajlar',this)">💬 Mesaj Onayı</a>
         <a onclick="adminSekme('icerikler',this)">📰 İçerikler</a>
-        <a id="menuBanlilar" onclick="adminSekme('banlılar',this)" style="display:none">⛔ Banlı Kullanıcılar</a>
+        <a id="menuBanlilar" onclick="adminSekme('banlilar',this)" style="display:none">⛔ Banlı Kullanıcılar</a>
         <a id="menuOneriler" onclick="adminSekme('oneriler',this)" style="display:none">💡 Öneri Kutusu</a>
       </div>
       <div class="admin-body">
@@ -1642,17 +1642,27 @@ async function adminYukle() {
 }
 
 window.adminSekme = (sekme, el) => {
-  ['adminGenel','adminKullanicilar','adminMesajlar','adminIcerikler','adminBanlılar'].forEach(id=>{
+  ['adminGenel','adminOnaylar','adminKullanicilar','adminMesajlar',
+   'adminIcerikler','adminBanlılar','adminOneriler'].forEach(id=>{
     const e=document.getElementById(id); if(e) e.style.display='none';
   });
-  const h = document.getElementById('admin'+sekme.charAt(0).toUpperCase()+sekme.slice(1));
+  // sekme adından ID üret
+  const idMap = {
+    'genel':'adminGenel','onaylar':'adminOnaylar','kullanicilar':'adminKullanicilar',
+    'mesajlar':'adminMesajlar','icerikler':'adminIcerikler',
+    'banlilar':'adminBanlılar','oneriler':'adminOneriler'
+  };
+  const panelId = idMap[sekme] || ('admin'+sekme.charAt(0).toUpperCase()+sekme.slice(1));
+  const h = document.getElementById(panelId);
   if(h) h.style.display='block';
   document.querySelectorAll('.admin-sb a').forEach(a=>a.classList.remove('aktif'));
   if(el) el.classList.add('aktif');
   if(sekme==='kullanicilar') adminKullanicilariYukle();
   if(sekme==='mesajlar') adminMesajlariYukle();
   if(sekme==='icerikler') adminIceriklerYukle();
-  if(sekme==='banlılar') adminBanlilariYukle();
+  if(sekme==='banlilar') adminBanlilariYukle();
+  if(sekme==='onaylar') window.onayListesiYukle && window.onayListesiYukle();
+  if(sekme==='oneriler') window.oneriListesiYukle && window.oneriListesiYukle();
 };
 
 async function adminKullanicilariYukle() {

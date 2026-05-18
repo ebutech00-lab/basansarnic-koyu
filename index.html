@@ -1330,30 +1330,42 @@ async function vefatYukle() {
     });
     // Slider
     const sliderId = 'vefatSlider';
-    const dots = kartlar.map((_,i) => '<button class="hkart-dot' + (i===0?' aktif':'') + '" data-slider="' + sliderId + '" data-idx="' + i + '" data-direkt="1"></button>').join('');
-    liste.innerHTML = '<div id="' + sliderId + 'Wrap" class="hkart-slider-wrap"><div class="hkart-track" id="' + sliderId + 'Track">' + kartlar.join('') + '</div></div>'
-      + (kartlar.length > 1 ? '<div class="hkart-nav"><div class="hkart-dots" id="' + sliderId + 'Dots">' + dots + '</div><div class="hkart-oklar"><button class="hkart-ok" onclick="_sliderGit('' + sliderId + '',-1)">&#8249;</button><span class="hkart-sayac" id="' + sliderId + 'Sayac">1 / ' + kartlar.length + '</span><button class="hkart-ok" onclick="_sliderGit('' + sliderId + '',1)">&#8250;</button></div></div>' : '');
-    if (kartlar.length > 1 && window._sliderState) {
-      window._sliderState[sliderId] = {index:0, total:kartlar.length, timer:null};
-      window._sliderState[sliderId].timer = setInterval(() => window._sliderGit(sliderId,1), 6000);
+    const dotsArr = [];
+    for (var _di = 0; _di < kartlar.length; _di++) {
+      dotsArr.push('<button class="hkart-dot' + (_di===0?' aktif':'') + '" data-slider="vefatSlider" data-idx="' + _di + '" data-direkt="1"></button>');
     }
-    // Event delegation - sil butonları
-    liste.querySelectorAll('[data-sil]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const kol = btn.getAttribute('data-sil');
-        const id = btn.getAttribute('data-id');
-        window._silveYenile(kol, id).then(() => vefatYukle());
+    const dotsHTML = dotsArr.join('');
+    const navStr = kartlar.length > 1
+      ? '<div class="hkart-nav"><div class="hkart-dots" id="vefatSliderDots">' + dotsHTML + '</div>'
+        + '<div class="hkart-oklar">'
+        + '<button class="hkart-ok" data-slider="vefatSlider" data-yon="-1">&#8249;</button>'
+        + '<span class="hkart-sayac" id="vefatSliderSayac">1 / ' + kartlar.length + '</span>'
+        + '<button class="hkart-ok" data-slider="vefatSlider" data-yon="1">&#8250;</button>'
+        + '</div></div>'
+      : '';
+    liste.innerHTML = '<div id="vefatSliderWrap" class="hkart-slider-wrap">'
+      + '<div class="hkart-track" id="vefatSliderTrack">' + kartlar.join('') + '</div>'
+      + '</div>' + navStr;
+    if (kartlar.length > 1 && window._sliderGit) {
+      if (!window._sliderState) window._sliderState = {};
+      window._sliderState['vefatSlider'] = {index:0, total:kartlar.length, timer:null};
+      window._sliderState['vefatSlider'].timer = setInterval(function(){
+        window._sliderGit('vefatSlider', 1);
+      }, 6000);
+    }
+    liste.querySelectorAll('[data-sil]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        window._silveYenile(btn.getAttribute('data-sil'), btn.getAttribute('data-id')).then(function(){ vefatYukle(); });
       });
     });
-    liste.querySelectorAll('[data-siliste]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const kol = btn.getAttribute('data-siliste');
-        const id = btn.getAttribute('data-id');
-        const ad = btn.getAttribute('data-ad');
-        window._silIste(kol, id, ad);
+    liste.querySelectorAll('[data-siliste]').forEach(function(btn){
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        window._silIste(btn.getAttribute('data-siliste'), btn.getAttribute('data-id'), btn.getAttribute('data-ad'));
       });
     });
-    // Anasayfa özet
+    // Anasayfa özet// Anasayfa özet
     if(avd) avd.innerHTML = snap.docs.slice(0,2).map(d=>{
       const v=d.data();
       return '<div class="vefat-kart"><h4>🕊️ ' + (v.ad||'—') + '</h4><p>Vefat: ' + tarihFormat(v.vefatTarihi) + '</p></div>';
@@ -1462,20 +1474,36 @@ window.arsivDetay = async (id) => {
   o.setAttribute('data-popup','1');
   o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
   const kapat = () => o.remove();
-  o.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:780px;width:100%;max-height:88vh;overflow-y:auto;position:relative">'
-    + '<button id="arsivKapatBtn" style="position:absolute;top:12px;right:14px;background:rgba(0,0,0,.06);border:none;font-size:1.3rem;cursor:pointer;color:#333;width:32px;height:32px;border-radius:50%">✕</button>'
-    + '<div style="padding:32px">'
-    + '<div style="font-size:1.3rem;margin-bottom:7px">' + (arsivIkon[a.kategori]||'📁') + '</div>'
-    + '<h2 style="font-family:'Playfair Display',serif;font-size:1.75rem;margin-bottom:7px;color:#5C3D1E">' + (a.baslik||'') + '</h2>'
-    + '<p style="color:#888;font-size:.83rem;margin-bottom:16px;border-bottom:1px solid #eee;padding-bottom:11px">'
-    + (a.kategori||'') + ' • ' + tarihFormat(a.createdAt) + ' • ' + (a.yazarAd||'Admin')
-    + (a.etiket?.length ? ' • ' + a.etiket.join(', ') : '')
-    + '</p>'
-    + '<div style="font-size:1rem;line-height:1.95;white-space:pre-wrap">' + (a.icerik||'') + '</div>'
-    + '</div></div>';
+  const div = document.createElement('div');
+  div.style.cssText='background:#fff;border-radius:12px;max-width:780px;width:100%;max-height:88vh;overflow-y:auto;position:relative';
+  const kapatBtn = document.createElement('button');
+  kapatBtn.textContent='✕';
+  kapatBtn.style.cssText='position:absolute;top:12px;right:14px;background:rgba(0,0,0,.06);border:none;font-size:1.3rem;cursor:pointer;color:#333;width:32px;height:32px;border-radius:50%;z-index:10';
+  kapatBtn.addEventListener('click', kapat);
+  const icerikDiv = document.createElement('div');
+  icerikDiv.style.cssText='padding:32px';
+  const ikonEl = document.createElement('div');
+  ikonEl.style.cssText='font-size:1.3rem;margin-bottom:7px';
+  ikonEl.textContent = arsivIkon[a.kategori]||'📁';
+  const baslikEl = document.createElement('h2');
+  baslikEl.style.cssText='font-size:1.75rem;margin-bottom:7px;color:#5C3D1E';
+  baslikEl.style.fontFamily = 'Playfair Display, serif';
+  baslikEl.textContent = a.baslik||'';
+  const metaEl = document.createElement('p');
+  metaEl.style.cssText='color:#888;font-size:.83rem;margin-bottom:16px;border-bottom:1px solid #eee;padding-bottom:11px';
+  metaEl.textContent = (a.kategori||'') + ' • ' + tarihFormat(a.createdAt) + ' • ' + (a.yazarAd||'Admin') + (a.etiket?.length?' • '+a.etiket.join(', '):'');
+  const textEl = document.createElement('div');
+  textEl.style.cssText='font-size:1rem;line-height:1.95;white-space:pre-wrap';
+  textEl.textContent = a.icerik||'';
+  icerikDiv.appendChild(ikonEl);
+  icerikDiv.appendChild(baslikEl);
+  icerikDiv.appendChild(metaEl);
+  icerikDiv.appendChild(textEl);
+  div.appendChild(kapatBtn);
+  div.appendChild(icerikDiv);
+  o.appendChild(div);
   o.addEventListener('click', e => { if(e.target===o) kapat(); });
   document.body.appendChild(o);
-  document.getElementById('arsivKapatBtn').addEventListener('click', kapat);
   document.addEventListener('keydown', function esc(e){ if(e.key==='Escape'){kapat();document.removeEventListener('keydown',esc);}});
 };
 
@@ -1592,7 +1620,7 @@ window.detayGoster = (baslik, icerikEnc) => {
   o.addEventListener('click',e=>{if(e.target===o)o.remove();});
   o.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:85vh;overflow-y:auto;padding:30px;position:relative">
     <button onclick="document.querySelectorAll('[data-popup]').forEach(el=>el.remove())" style="position:absolute;top:11px;right:13px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666">✕</button>
-    <h2 style="font-family:'Playfair Display',serif;font-size:1.65rem;margin-bottom:16px;color:#5C3D1E">${baslik}</h2>
+    <h2 style="font-family:Playfair Display,serif;font-size:1.65rem;margin-bottom:16px;color:#5C3D1E">${baslik}</h2>
     <div style="font-size:1rem;line-height:1.9;white-space:pre-wrap">${icerik}</div>
   </div>`;
   o.addEventListener('click',e=>{if(e.target===o)o.remove();});
@@ -1973,7 +2001,7 @@ window.detayGosterFoto = (baslikEnc, icerikEnc, fotoUrl) => {
     <button onclick="document.querySelectorAll('[data-popup]').forEach(el=>el.remove())" style="position:absolute;top:11px;right:13px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666;z-index:1">✕</button>
     ${fotoUrl ? `<img src="${fotoUrl}" style="width:100%;max-height:320px;object-fit:cover;border-radius:12px 12px 0 0">` : ''}
     <div style="padding:24px 28px">
-      <h2 style="font-family:'Playfair Display',serif;font-size:1.65rem;margin-bottom:14px;color:#5C3D1E">${baslik}</h2>
+      <h2 style="font-family:Playfair Display,serif;font-size:1.65rem;margin-bottom:14px;color:#5C3D1E">${baslik}</h2>
       <div style="font-size:1rem;line-height:1.9;white-space:pre-wrap;color:#333">${icerik}</div>
     </div>
   </div>`;
@@ -2393,7 +2421,7 @@ window.detayGosterFoto = (baslikEnc, icerikEnc, fotoUrl) => {
     <button onclick="document.querySelectorAll('[data-popup]').forEach(el=>el.remove())" style="position:absolute;top:11px;right:13px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666;z-index:1">✕</button>
     ${fotoUrl ? `<img src="${fotoUrl}" style="width:100%;max-height:320px;object-fit:cover;border-radius:12px 12px 0 0">` : ''}
     <div style="padding:24px 28px">
-      <h2 style="font-family:'Playfair Display',serif;font-size:1.65rem;margin-bottom:14px;color:#5C3D1E">${baslik}</h2>
+      <h2 style="font-family:Playfair Display,serif;font-size:1.65rem;margin-bottom:14px;color:#5C3D1E">${baslik}</h2>
       <div style="font-size:1rem;line-height:1.9;white-space:pre-wrap;color:#333">${icerik}</div>
     </div>
   </div>`;
@@ -2406,9 +2434,7 @@ window.detayGosterFoto = (baslikEnc, icerikEnc, fotoUrl) => {
 // ══════════════════════════════════════════════════
 // CLOUDINARY CONFIG
 // ══════════════════════════════════════════════════
-const CLOUD_NAME   = 'dyrpd9y4y';
-const UPLOAD_PRESET = 'basansarnic';
-const CLOUD_URL    = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+
 
 // ── Cloudinary'e fotoğraf yükle ────────────────────
 async function cloudinaryYukle(file, klasor='galeri') {
@@ -2663,7 +2689,7 @@ window.detayGosterFoto = (baslikEnc, icerikEnc, fotoUrl) => {
     <button onclick="document.querySelectorAll('[data-popup]').forEach(el=>el.remove())" style="position:absolute;top:11px;right:13px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666;z-index:1">✕</button>
     ${fotoUrl ? `<img src="${fotoUrl}" style="width:100%;max-height:320px;object-fit:cover;border-radius:12px 12px 0 0">` : ''}
     <div style="padding:24px 28px">
-      <h2 style="font-family:'Playfair Display',serif;font-size:1.65rem;margin-bottom:14px;color:#5C3D1E">${baslik}</h2>
+      <h2 style="font-family:Playfair Display,serif;font-size:1.65rem;margin-bottom:14px;color:#5C3D1E">${baslik}</h2>
       <div style="font-size:1rem;line-height:1.9;white-space:pre-wrap;color:#333">${icerik}</div>
     </div>
   </div>`;
@@ -2676,9 +2702,7 @@ window.detayGosterFoto = (baslikEnc, icerikEnc, fotoUrl) => {
 // ══════════════════════════════════════════════════
 // CLOUDINARY CONFIG
 // ══════════════════════════════════════════════════
-const CLOUD_NAME   = 'dyrpd9y4y';
-const UPLOAD_PRESET = 'basansarnic';
-const CLOUD_URL    = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+
 
 // ── Cloudinary'e fotoğraf yükle ────────────────────
 async function cloudinaryYukle(file, klasor='galeri') {

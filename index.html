@@ -1330,7 +1330,7 @@ async function vefatYukle() {
     });
     // Slider
     const sliderId = 'vefatSlider';
-    const dots = kartlar.map((_,i) => '<button class="hkart-dot' + (i===0?' aktif':'') + '" onclick="_sliderGit('' + sliderId + '',' + i + ',true)"></button>').join('');
+    const dots = kartlar.map((_,i) => '<button class="hkart-dot' + (i===0?' aktif':'') + '" data-slider="' + sliderId + '" data-idx="' + i + '" data-direkt="1"></button>').join('');
     liste.innerHTML = '<div id="' + sliderId + 'Wrap" class="hkart-slider-wrap"><div class="hkart-track" id="' + sliderId + 'Track">' + kartlar.join('') + '</div></div>'
       + (kartlar.length > 1 ? '<div class="hkart-nav"><div class="hkart-dots" id="' + sliderId + 'Dots">' + dots + '</div><div class="hkart-oklar"><button class="hkart-ok" onclick="_sliderGit('' + sliderId + '',-1)">&#8249;</button><span class="hkart-sayac" id="' + sliderId + 'Sayac">1 / ' + kartlar.length + '</span><button class="hkart-ok" onclick="_sliderGit('' + sliderId + '',1)">&#8250;</button></div></div>' : '');
     if (kartlar.length > 1 && window._sliderState) {
@@ -1512,7 +1512,7 @@ async function mesajlarYukle() {
           <strong style="font-size:.9rem">${m.baslik||''}</strong>
           <p>${m.icerik||''}</p>
         </div>
-        ${mevcutRol&&['admin','superAdmin'].includes(mevcutRol)?`<button class="haber-sil" onclick="mesajSil('${d.id}')">🗑</button>`:''}
+        ${mevcutRol&&['admin','superAdmin'].includes(mevcutRol)?`<button class="haber-sil" data-mesajsil="true" style="cursor:pointer">🗑</button>`:''}
       </div>`;
     }).join('');
   } catch(e) { console.error(e); }
@@ -1633,15 +1633,15 @@ async function adminKullanicilariYukle() {
   const akt = snap.docs.filter(d=>d.data().status==='approved');
   document.getElementById('bekleyenTablo').innerHTML = bek.length ?
     bek.map(d=>{const u=d.data();return`<tr><td>${u.ad||'—'}</td><td>${u.email||'—'}</td><td>${u.bag||'—'}</td><td>
-      <button class="abtn abtn-onayla" onclick="kulOnay('${d.id}','approved')">✓ Onayla</button>
-      <button class="abtn abtn-sil" onclick="kulOnay('${d.id}','banned')">✗ Reddet</button></td></tr>`;}).join('')
+      <button class="abtn abtn-onayla" data-kulonay="${d.id}" data-durum="approved">✓ Onayla</button>
+      <button class="abtn abtn-sil" data-kulonay="${d.id}" data-durum="banned">✗ Reddet</button></td></tr>`;}).join('')
     : '<tr><td colspan="4" style="color:#666">Onay bekleyen yok.</td></tr>';
   document.getElementById('aktifTablo').innerHTML = akt.length ?
     akt.map(d=>{const u=d.data();return`<tr><td>${u.ad||'—'}</td><td>${u.email||'—'}</td>
       <td><span style="color:${u.rol==='admin'?'#fbbf24':u.rol==='editor'?'#60a5fa':'#4ade80'}">${u.rol||'koylu'}</span></td>
       <td>
-        <button class="abtn abtn-editor" onclick="rolDegistir('${d.id}','admin')">Admin Yap</button>
-        <button class="abtn abtn-sil" onclick="kulSil('${d.id}')">Sil</button>
+        <button class="abtn abtn-editor" data-roldegistir="${d.id}" data-rol="admin">Admin Yap</button>
+        <button class="abtn abtn-sil" data-kulsil="${d.id}">Sil</button>
       </td></tr>`;}).join('')
     : '<tr><td colspan="4" style="color:#666">Aktif üye yok.</td></tr>';
 }
@@ -1669,8 +1669,8 @@ async function adminMesajlariYukle() {
     return`<tr><td>${m.baslik||'—'}</td><td>${m.yazarAd||'—'}</td>
       <td><span style="color:${skorRenk};font-weight:700">${m.aiSkor||0}/10</span></td>
       <td>
-        <button class="abtn abtn-onayla" onclick="mesajOnayla('${d.id}')">✓ Onayla</button>
-        <button class="abtn abtn-sil" onclick="mesajReddet('${d.id}')">✗ Reddet</button>
+        <button class="abtn abtn-onayla" data-mesajonayla="${d.id}">✓ Onayla</button>
+        <button class="abtn abtn-sil" data-mesajreddet="${d.id}">✗ Reddet</button>
       </td></tr>`;
   }).join('') || '<tr><td colspan="4" style="color:#666">Bekleyen mesaj yok.</td></tr>';
 }
@@ -1729,13 +1729,63 @@ async function adminBanlilariYukle() {
   const snap = await getDocs(query(collection(db,'users'),where('mesajBan','==',true)));
   document.getElementById('banliTablo').innerHTML = snap.docs.map(d=>{
     const u=d.data(); return`<tr><td>${u.ad||'—'}</td><td>${u.email||'—'}</td><td style="color:#fca5a5;font-size:.8rem">${u.banSebebi||'Argo/Hakaret'}</td>
-      <td><button class="abtn abtn-onayla" onclick="banKaldir('${d.id}')">🔓 Banı Kaldır</button></td></tr>`;
+      <td><button class="abtn abtn-onayla" data-bankaldir="${d.id}">🔓 Banı Kaldır</button></td></tr>`;
   }).join('') || '<tr><td colspan="4" style="color:#666">Banlı kullanıcı yok.</td></tr>';
 }
 window.banKaldir = async (docId) => {
   await updateDoc(doc(db,'users',docId),{mesajBan:false, banSebebi:'', banTarihi:null});
   bildirimGoster('Ban kaldırıldı.','basari'); adminBanlilariYukle();
 };
+
+// ══════════════════════════════════════════════════
+// GLOBAL EVENT DELEGATION - Admin tablolar
+// ══════════════════════════════════════════════════
+document.addEventListener('click', async function(e) {
+  // mesajSil
+  if (e.target.closest('[data-mesajsil]')) {
+    const el = e.target.closest('[data-mesajsil]');
+    const id = el.closest('tr')?.querySelector('[data-mesaj-id]')?.dataset.mesajId
+              || el.dataset.id || el.closest('[data-id]')?.dataset.id;
+    if (id && confirm('Silmek istediğinizden emin misiniz?')) {
+      await deleteDoc(doc(db,'mesajlar',id));
+      bildirimGoster('Silindi.','bilgi'); mesajlarYukle && mesajlarYukle();
+    }
+  }
+  // kulOnay
+  const kulOnayEl = e.target.closest('[data-kulonay]');
+  if (kulOnayEl) { kulOnay(kulOnayEl.dataset.kulonay, kulOnayEl.dataset.durum); return; }
+  // rolDegistir
+  const rolEl = e.target.closest('[data-roldegistir]');
+  if (rolEl) { rolDegistir(rolEl.dataset.roldegistir, rolEl.dataset.rol); return; }
+  // kulSil
+  const kulSilEl = e.target.closest('[data-kulsil]');
+  if (kulSilEl) { kulSil(kulSilEl.dataset.kulsil); return; }
+  // mesajOnayla
+  const mOnayEl = e.target.closest('[data-mesajonayla]');
+  if (mOnayEl) { mesajOnayla(mOnayEl.dataset.mesajonayla); return; }
+  // mesajReddet
+  const mReddetEl = e.target.closest('[data-mesajreddet]');
+  if (mReddetEl) { mesajReddet(mReddetEl.dataset.mesajreddet); return; }
+  // banKaldir
+  const banEl = e.target.closest('[data-bankaldir]');
+  if (banEl) { banKaldir(banEl.dataset.bankaldir); return; }
+  // lightbox
+  const lbEl = e.target.closest('[data-lightbox]');
+  if (lbEl) { lightboxAc(lbEl.dataset.lightbox); return; }
+  // galeriSil
+  const gsEl = e.target.closest('[data-galerisil]');
+  if (gsEl) { e.stopPropagation(); galeriSil(gsEl.dataset.galerisil); return; }
+  // onayOnayla
+  const ooEl = e.target.closest('[data-onayonayla]');
+  if (ooEl) { onayOnayla(ooEl.dataset.onayonayla); return; }
+  // onayReddet
+  const orEl = e.target.closest('[data-onayreddet]');
+  if (orEl) { onayReddet(orEl.dataset.onayreddet); return; }
+  // oneriSil
+  const osiEl = e.target.closest('[data-onerisil]');
+  if (osiEl) { oneriSil(osiEl.dataset.onerisil); return; }
+});
+
 </script>
 
 <script>
@@ -1783,7 +1833,7 @@ window.bolumKay = (id) => {
 // ══════════════════════════════════════════════════
 // HABER & DUYURU SLIDER SİSTEMİ
 // ══════════════════════════════════════════════════
-const _sliderState = {};
+const _sliderState = {};/* _sliderState_dup */
 
 function haberSliderHTML(data, koleksiyon, tip) {
   if (!data.length) return '<p style="color:var(--gri);font-size:.86rem;padding:8px 0">Henüz içerik yok.</p>';
@@ -2016,10 +2066,10 @@ window.galeriYukleListesi = async () => {
     }
     grid.innerHTML = snap.docs.map(d => {
       const g = d.data();
-      return `<div class="galeri-item" onclick="lightboxAc('${g.url}')">
+      return `<div class="galeri-item" data-lightbox="${g.url}">
         <img src="${g.url}" alt="Köy fotoğrafı" loading="lazy">
         ${window._mevcutRol && ['admin','superAdmin'].includes(window._mevcutRol) ?
-          `<button class="galeri-sil" onclick="event.stopPropagation();galeriSil('${d.id}')">🗑️</button>` : ''}
+          `<button class="galeri-sil" data-galerisil="${d.id}">🗑️</button>` : ''}
       </div>`;
     }).join('');
   } catch(e) { console.error(e); }
@@ -2199,413 +2249,543 @@ window.muhtarKaydet = async () => {
 </script>
 
 <script>
-// ══════════════════════════════════════════════════
-// ONAY SİSTEMİ — 4 GÖZ PRENSİBİ
-// ══════════════════════════════════════════════════
 
-// Onay gerektiren işlem gönder
-async function onayaGonder(tip, aksiyon, veri, aciklama) {
-  // SuperAdmin ise direkt yap
-  if (window._mevcutRol_getter && window._mevcutRol_getter() === 'superAdmin') {
-    return await islemYap(tip, aksiyon, veri);
+// ══════════════════════════════════════════════════
+// HABER & DUYURU SLIDER SİSTEMİ
+// ══════════════════════════════════════════════════
+/* _sliderState_dup */
+
+function haberSliderHTML(data, koleksiyon, tip) {
+  if (!data.length) return '<p style="color:var(--gri);font-size:.86rem;padding:8px 0">Henüz içerik yok.</p>';
+  const sliderId = koleksiyon + 'Slider';
+  const _rol = window._mevcutRol_getter ? window._mevcutRol_getter() : null;
+  const isSA = _rol === 'superAdmin';
+  const kartlar = data.map((item, i) => {
+    const baslik = (item.baslik || '—').replace(/"/g, '&quot;');
+    const icerikEnc = encodeURIComponent(item.icerik || '');
+    const baslikEnc = encodeURIComponent(item.baslik || '');
+    const fotoUrl = (item.fotoUrl || '').replace(/"/g, '');
+    const tarihStr = (window.tarihFormat || tarihFormat)(item.createdAt);
+    const itemId = item.id || '';
+
+    let silBtn = '';
+    if (_rol && ['admin','superAdmin'].includes(_rol)) {
+      if (isSA) {
+        silBtn = '<button data-sil="' + koleksiyon + '" data-id="' + itemId + '" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.72rem;z-index:5">🗑️</button>';
+      } else {
+        silBtn = '<button data-siliste="' + koleksiyon + '" data-id="' + itemId + '" data-ad="' + baslik.replace(/'/g,'') + '" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.72rem;z-index:5">🗑️</button>';
+      }
+    }
+
+    const kart = fotoUrl
+      ? '<div class="hkart" data-baslik="' + baslikEnc + '" data-icerik="' + icerikEnc + '" data-foto="' + fotoUrl + '" style="position:relative;cursor:pointer">'
+        + silBtn
+        + '<img class="hkart-foto" src="' + fotoUrl + '" alt="' + baslik + '" loading="lazy">'
+        + '<div class="hkart-overlay">'
+        + '<span class="hkart-etiket' + (tip==='duyuru'?' duyuru':'') + '">' + (tip==='haber'?'📰 Haber':'📢 Duyuru') + '</span>'
+        + '<div class="hkart-baslik">' + baslik + '</div>'
+        + '<div class="hkart-ozet">' + (item.icerik||'').substring(0,80) + ((item.icerik||'').length>80?'...':'') + '</div>'
+        + '<div class="hkart-meta">' + tarihStr + '</div>'
+        + '</div></div>'
+      : '<div class="hkart" data-baslik="' + baslikEnc + '" data-icerik="' + icerikEnc + '" data-foto="" style="position:relative;cursor:pointer">'
+        + silBtn
+        + '<div class="hkart-foto-placeholder">' + (tip==='haber'?'📰':'📢') + '</div>'
+        + '<div class="hkart-icerik">'
+        + '<span class="hkart-etiket' + (tip==='duyuru'?' duyuru':'') + '">' + (tip==='haber'?'📰 Haber':'📢 Duyuru') + '</span>'
+        + '<div class="hkart-baslik">' + baslik + '</div>'
+        + '<div class="hkart-ozet">' + (item.icerik||'').substring(0,100) + ((item.icerik||'').length>100?'...':'') + '</div>'
+        + '<div class="hkart-meta">' + tarihStr + '</div>'
+        + '</div></div>';
+    return kart;
+  }).join('');
+
+  const dots = data.map((_,i) =>
+    '<button class="hkart-dot' + (i===0?' aktif':'') + '" data-slider="' + sliderId + '" data-idx="' + i + '"></button>'
+  ).join('');
+
+  return '<div id="' + sliderId + 'Wrap" class="hkart-slider-wrap">'
+    + '<div class="hkart-track" id="' + sliderId + 'Track">' + kartlar + '</div>'
+    + '</div>'
+    + (data.length > 1
+      ? '<div class="hkart-nav">'
+        + '<div class="hkart-dots" id="' + sliderId + 'Dots">' + dots + '</div>'
+        + '<div class="hkart-oklar">'
+        + '<button class="hkart-ok" data-slider="' + sliderId + '" data-yon="-1">&#8249;</button>'
+        + '<span class="hkart-sayac" id="' + sliderId + 'Sayac">1 / ' + data.length + '</span>'
+        + '<button class="hkart-ok" data-slider="' + sliderId + '" data-yon="1">&#8250;</button>'
+        + '</div></div>'
+      : '');
+}
+
+function haberSliderBagla(sliderId, data, koleksiyon) {
+  _sliderState[sliderId] = { index: 0, total: data.length, timer: null };
+  if (data.length > 1) {
+    _sliderState[sliderId].timer = setInterval(() => _sliderGit(sliderId, 1), 5000);
   }
-  // Admin ise onaya gönder
-  const ud = await window._getDoc(window._doc(window._db,'users',window._mevcutKullanici.uid));
-  const yazarAd = ud.exists() ? ud.data().ad : 'Admin';
-  await window._addDoc(window._collection(window._db,'onay_bekleyen'), {
-    tip,          // 'haberler','arsiv','vefat','duyurular','ayarlar','galeri','hero'
-    aksiyon,      // 'ekle','sil','guncelle'
-    veri,         // işlem verisi
-    aciklama,     // kullanıcıya gösterilecek açıklama
-    yazarUid: window._mevcutKullanici.uid,
-    yazarAd,
-    durum: 'bekliyor',
-    createdAt: window._serverTimestamp()
-  });
-  bildirimGoster('✅ İşlem onay için gönderildi! Başka bir admin onayladığında yayına girecek.','bilgi');
-  return 'onaya_gonderildi';
-}
-
-// İşlemi gerçekten yap (onaylandıktan sonra)
-async function islemYap(tip, aksiyon, veri) {
-  try {
-    if (aksiyon === 'ekle') {
-      await window._addDoc(window._collection(window._db, tip), {
-        ...veri, createdAt: window._serverTimestamp()
-      });
-      return 'tamam';
-    } else if (aksiyon === 'sil') {
-      await window._deleteDoc(window._doc(window._db, tip, veri.id));
-      return 'tamam';
-    } else if (aksiyon === 'guncelle') {
-      await window._updateDoc(window._doc(window._db, tip, veri.id), veri.data);
-      return 'tamam';
-    } else if (aksiyon === 'ayar') {
-      await window._setDoc(window._doc(window._db, tip, veri.docId), veri.data);
-      return 'tamam';
-    } else if (aksiyon === 'hero') {
-      await window._setDoc(window._doc(window._db,'ayarlar','hero'), {url: veri.url, guncellendi: new Date()});
-      // Hero fotoğrafını güncelle
-      heroFotoUygula(veri.url);
-      return 'tamam';
-    }
-  } catch(e) {
-    bildirimGoster('Hata: '+e.message,'hata');
-    return 'hata';
+  // Event delegation - kartlara tıklama + silme
+  const wrap = document.getElementById(sliderId + 'Wrap');
+  if (wrap) {
+    wrap.addEventListener('click', function(e) {
+      // Sil butonu
+      const silBtn = e.target.closest('[data-sil]');
+      if (silBtn) {
+        e.stopPropagation();
+        window._silveYenile(silBtn.dataset.sil, silBtn.dataset.id).then(() => {
+          if (koleksiyon==='haberler' && window.haberlerYukle) window.haberlerYukle();
+          if (koleksiyon==='duyurular' && window.duyurularYukle) window.duyurularYukle();
+        });
+        return;
+      }
+      const silIsteBtn = e.target.closest('[data-siliste]');
+      if (silIsteBtn) {
+        e.stopPropagation();
+        window._silIste(silIsteBtn.dataset.siliste, silIsteBtn.dataset.id, silIsteBtn.dataset.ad);
+        return;
+      }
+      // Kart tıklama - detay popup
+      const kart = e.target.closest('[data-baslik]');
+      if (kart) {
+        window.detayGosterFoto(kart.dataset.baslik, kart.dataset.icerik, kart.dataset.foto || '');
+      }
+    });
+  }
+  // Dots ve oklar event delegation
+  const nav = wrap?.nextElementSibling;
+  if (nav) {
+    nav.addEventListener('click', function(e) {
+      const dot = e.target.closest('[data-slider][data-idx]');
+      if (dot) { _sliderGit(dot.dataset.slider, parseInt(dot.dataset.idx), true); return; }
+      const ok = e.target.closest('[data-slider][data-yon]');
+      if (ok) { _sliderGit(ok.dataset.slider, parseInt(ok.dataset.yon)); }
+    });
   }
 }
 
-// Onay listesini yükle
-window.onayListesiYukle = async () => {
-  const liste = document.getElementById('onayListesi');
-  if (!liste) return;
-  try {
-    const snap = await window._getDocs(
-      window._query(window._collection(window._db,'onay_bekleyen'),
-        window._where('durum','==','bekliyor'),
-        window._orderBy('createdAt','desc'))
-    );
-    // Badge güncelle
-    const badge = document.getElementById('onayBadge');
-    if (badge) {
-      badge.style.display = snap.size > 0 ? 'inline-block' : 'none';
-      badge.textContent = snap.size > 0 ? snap.size : '';
-    }
-    if (snap.empty) {
-      liste.innerHTML = '<div class="onay-bos">✅ Onay bekleyen işlem yok.</div>';
-      return;
-    }
-    const isSuperAdmin = window._mevcutRol_getter && window._mevcutRol_getter() === 'superAdmin';
-    liste.innerHTML = snap.docs.map(d => {
-      const o = d.data();
-      const benimIslem = o.yazarUid === window._mevcutKullanici?.uid;
-      const tipRenk = o.aksiyon==='sil'?'tip-sil':o.aksiyon==='ekle'?'tip-ekle':'tip-guncelle';
-      const tipYazi = o.aksiyon==='sil'?'🗑️ Silme':o.aksiyon==='ekle'?'➕ Ekleme':'✏️ Güncelleme';
-      return `<div class="onay-kart">
-        <h4>
-          <span class="onay-tip ${tipRenk}">${tipYazi}</span>
-          ${o.tip?.toUpperCase()} — ${o.aciklama||''}
-        </h4>
-        <div class="meta">👤 ${o.yazarAd||'Admin'} tarafından gönderildi</div>
-        <div class="actions">
-          ${(isSuperAdmin || !benimIslem) ? `
-            <button class="abtn abtn-onayla" onclick="onayOnayla('${d.id}')">✅ Onayla & Uygula</button>
-            <button class="abtn abtn-sil" onclick="onayReddet('${d.id}')">❌ Reddet</button>
-          ` : '<span style="color:#888;font-size:.8rem">⏳ Başka bir admin onayını bekliyor...</span>'}
-        </div>
-      </div>`;
-    }).join('');
-  } catch(e) { liste.innerHTML = '<div class="onay-bos">Yüklenemedi: '+e.message+'</div>'; }
+window._sliderGit = (sliderId, yon, direkt=false) => {
+  const state = _sliderState[sliderId];
+  if (!state) return;
+  if (direkt) {
+    state.index = yon;
+  } else {
+    state.index = (state.index + yon + state.total) % state.total;
+  }
+  const track = document.getElementById(sliderId + 'Track');
+  if (track) track.style.transform = `translateX(-${state.index * 100}%)`;
+  const dots = document.querySelectorAll(`#${sliderId}Dots .hkart-dot`);
+  dots.forEach((d,i) => d.classList.toggle('aktif', i === state.index));
+  const sayac = document.getElementById(sliderId + 'Sayac');
+  if (sayac) sayac.textContent = `${state.index+1} / ${state.total}`;
+  // Timer sıfırla
+  if (!direkt) return;
+  if (state.timer) clearInterval(state.timer);
+  if (state.total > 1) state.timer = setInterval(() => _sliderGit(sliderId, 1), 5000);
 };
 
-// Onay onayla
-window.onayOnayla = async (docId) => {
-  yukleniyorGoster(true);
-  try {
-    const snap = await window._getDoc(window._doc(window._db,'onay_bekleyen',docId));
-    if (!snap.exists()) { bildirimGoster('İşlem bulunamadı.','hata'); return; }
-    const o = snap.data();
-    const sonuc = await islemYap(o.tip, o.aksiyon, o.veri);
-    if (sonuc === 'tamam') {
-      await window._updateDoc(window._doc(window._db,'onay_bekleyen',docId), {
-        durum:'onaylandi',
-        onaylayanUid: window._mevcutKullanici.uid,
-        onayTarihi: window._serverTimestamp()
-      });
-      bildirimGoster('✅ İşlem onaylandı ve uygulandı!','basari');
-      onayListesiYukle();
-      // İlgili listeyi yenile
-      if (o.tip==='haberler') haberlerYukle && haberlerYukle();
-      if (o.tip==='arsiv') arsivYukle && arsivYukle();
-      if (o.tip==='vefat') vefatYukle && vefatYukle();
-      if (o.tip==='duyurular') duyurularYukle && duyurularYukle();
-    }
-  } catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
-  finally { yukleniyorGoster(false); }
+// detayGosterFoto'yu güncelle - encoded başlık için
+window.detayGosterFoto = (baslikEnc, icerikEnc, fotoUrl) => {
+  const baslik = decodeURIComponent(baslikEnc);
+  const icerik = decodeURIComponent(icerikEnc);
+  const o = document.createElement('div');
+  o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
+  o.setAttribute('data-popup','1');
+  o.addEventListener('click',e=>{if(e.target===o)o.remove();});
+  o.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:88vh;overflow-y:auto;position:relative">
+    <button onclick="document.querySelectorAll('[data-popup]').forEach(el=>el.remove())" style="position:absolute;top:11px;right:13px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666;z-index:1">✕</button>
+    ${fotoUrl ? `<img src="${fotoUrl}" style="width:100%;max-height:320px;object-fit:cover;border-radius:12px 12px 0 0">` : ''}
+    <div style="padding:24px 28px">
+      <h2 style="font-family:'Playfair Display',serif;font-size:1.65rem;margin-bottom:14px;color:#5C3D1E">${baslik}</h2>
+      <div style="font-size:1rem;line-height:1.9;white-space:pre-wrap;color:#333">${icerik}</div>
+    </div>
+  </div>`;
+  o.addEventListener('click',e=>{if(e.target===o)o.remove();});
+  document.body.appendChild(o);
 };
 
-// Onay reddet
-window.onayReddet = async (docId) => {
-  if (!confirm('Bu işlemi reddetmek istediğinizden emin misiniz?')) return;
-  await window._updateDoc(window._doc(window._db,'onay_bekleyen',docId), {
-    durum:'reddedildi',
-    reddedentUid: window._mevcutKullanici.uid
-  });
-  bildirimGoster('İşlem reddedildi.','bilgi');
-  onayListesiYukle();
-};
 
-// Onay sayısını kontrol et (periyodik)
-async function onayKontrol() {
-  if (!window._mevcutKullanici) return;
-  try {
-    const snap = await window._getDocs(
-      window._query(window._collection(window._db,'onay_bekleyen'),window._where('durum','==','bekliyor'))
-    );
-    const badge = document.getElementById('onayBadge');
-    if (badge) {
-      badge.style.display = snap.size > 0 ? 'inline-block' : 'none';
-      badge.textContent = snap.size > 0 ? snap.size : '';
-    }
-  } catch(e) {}
+
+// ══════════════════════════════════════════════════
+// CLOUDINARY CONFIG
+// ══════════════════════════════════════════════════
+const CLOUD_NAME   = 'dyrpd9y4y';
+const UPLOAD_PRESET = 'basansarnic';
+const CLOUD_URL    = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+
+// ── Cloudinary'e fotoğraf yükle ────────────────────
+async function cloudinaryYukle(file, klasor='galeri') {
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', UPLOAD_PRESET);
+  fd.append('folder', klasor);
+  const res = await fetch(CLOUD_URL, { method:'POST', body:fd });
+  const data = await res.json();
+  if (data.secure_url) return data.secure_url;
+  throw new Error('Yükleme başarısız: ' + JSON.stringify(data));
 }
-setInterval(onayKontrol, 30000); // Her 30 saniyede kontrol
 
-// ══════════════════════════════════════════════════
-// HERO FOTOĞRAF DEĞİŞTİRME
-// ══════════════════════════════════════════════════
-window.heroFotoOnizle = (input) => {
+// ── Önizleme göster ────────────────────────────────
+window.onizleGoster = (input, onizId, silId) => {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = e => {
-    const img = document.getElementById('heroFotoOnizleme');
-    if (img) { img.src = e.target.result; img.style.display='block'; }
+    const oniz = document.getElementById(onizId);
+    const sil = document.getElementById(silId);
+    oniz.src = e.target.result;
+    oniz.style.display = 'block';
+    sil.style.display = 'inline';
   };
   reader.readAsDataURL(file);
 };
 
-window.heroFotoGonder = async () => {
-  const input = document.getElementById('heroFotoInput');
-  const durum = document.getElementById('heroFotoDurum');
-  if (!input?.files[0]) { bildirimGoster('Önce bir fotoğraf seçin.','hata'); return; }
-  yukleniyorGoster(true);
-  if (durum) durum.textContent = '⏳ Yükleniyor...';
-  try {
-    const url = await window.cloudinaryYukle(input.files[0], 'hero');
-    const sonuc = await onayaGonder('hero','hero',{url},'Hero fotoğrafı değişikliği');
-    if (sonuc === 'tamam') {
-      heroFotoUygula(url);
-      if (durum) durum.textContent = '✅ Uygulandı!';
-    } else {
-      if (durum) durum.textContent = '⏳ Onay bekleniyor...';
+window.fotoSifirla = (inputId, onizId, silId) => {
+  document.getElementById(inputId).value = '';
+  const oniz = document.getElementById(onizId);
+  const sil = document.getElementById(silId);
+  oniz.src = ''; oniz.style.display = 'none';
+  sil.style.display = 'none';
+};
+
+// ── GALERİ YÜKLEMESİ ──────────────────────────────
+window.galeriYukle = async (input) => {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  const durum = document.getElementById('yuklemeDurumu');
+  durum.textContent = `⏳ ${files.length} fotoğraf yükleniyor...`;
+
+  let basarili = 0;
+  for (const file of files) {
+    try {
+      const url = await cloudinaryYukle(file, 'galeri');
+      // Firestore'a kaydet
+      await window._addDoc(window._collection(window._db,'galeri'), {
+        url, yukleyenUid: window._mevcutKullanici?.uid || '',
+        createdAt: window._serverTimestamp()
+      });
+      basarili++;
+      durum.textContent = `⏳ ${basarili}/${files.length} yüklendi...`;
+    } catch(e) {
+      console.error('Yükleme hatası:', e);
     }
-    input.value='';
-    document.getElementById('heroFotoOnizleme').style.display='none';
-  } catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
-  finally { yukleniyorGoster(false); }
-};
-
-function heroFotoUygula(url) {
-  const hero = document.querySelector('.hero');
-  if (hero) hero.style.backgroundImage = `url('${url}')`;
-}
-
-// Hero fotoğrafını yükle
-async function heroFotoYukle() {
-  try {
-    if (!window._getDoc || !window._doc || !window._db) { setTimeout(heroFotoYukle,1000); return; }
-    const snap = await window._getDoc(window._doc(window._db,'ayarlar','hero'));
-    if (snap.exists() && snap.data().url) heroFotoUygula(snap.data().url);
-  } catch(e) {}
-}
-setTimeout(heroFotoYukle, 1000);
-
-// ══════════════════════════════════════════════════
-// ONAY SİSTEMİ İLE ENTEGRE EDİLMİŞ FONKSİYONLAR
-// ══════════════════════════════════════════════════
-
-// Haber ekle — onay sistemiyle
-window.haberEkleOnay = async () => {
-  const baslik = document.getElementById('haberBaslik').value.trim();
-  const icerik = document.getElementById('haberIcerik').value.trim();
-  if (!baslik||!icerik) { bildirimGoster('Başlık ve içerik zorunludur.','hata'); return; }
-  yukleniyorGoster(true);
-  try {
-    const ud = await window._getDoc(window._doc(window._db,'users',window._mevcutKullanici.uid));
-    const yazarAd = ud.exists()?ud.data().ad:'Admin';
-    let fotoUrl = null;
-    const fotoInput = document.getElementById('haberFoto');
-    if (fotoInput?.files[0]) { fotoUrl = await window.cloudinaryYukle(fotoInput.files[0],'haberler'); }
-    const veri = {baslik, icerik, fotoUrl, yazarUid:window._mevcutKullanici.uid, yazarAd};
-    const sonuc = await onayaGonder('haberler','ekle',veri,`"${baslik}" haberi`);
-    if (sonuc === 'tamam') {
-      document.getElementById('haberBaslik').value='';
-      document.getElementById('haberIcerik').value='';
-      if(fotoInput) fotoInput.value='';
-      bildirimGoster('Haber yayınlandı!','basari');
-      haberlerYukle && haberlerYukle();
-    }
-  } catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
-  finally { yukleniyorGoster(false); }
-};
-
-// Duyuru ekle — onay sistemiyle
-window.duyuruEkleOnay = async () => {
-  const baslik = document.getElementById('duyuruBaslik').value.trim();
-  const icerik = document.getElementById('duyuruIcerik').value.trim();
-  const tur = document.getElementById('duyuruTur').value;
-  const tarih = document.getElementById('duyuruTarih').value;
-  const yer = document.getElementById('duyuruYer').value.trim();
-  if (!baslik||!icerik) { bildirimGoster('Başlık ve içerik zorunludur.','hata'); return; }
-  yukleniyorGoster(true);
-  try {
-    const ud = await window._getDoc(window._doc(window._db,'users',window._mevcutKullanici.uid));
-    const yazarAd = ud.exists()?ud.data().ad:'Admin';
-    let fotoUrl = null;
-    const fotoInput = document.getElementById('duyuruFoto');
-    if (fotoInput?.files[0]) { fotoUrl = await window.cloudinaryYukle(fotoInput.files[0],'duyurular'); }
-    const veri = {baslik,icerik,tur,tarih,yer,fotoUrl,yazarUid:window._mevcutKullanici.uid,yazarAd};
-    const sonuc = await onayaGonder('duyurular','ekle',veri,`"${baslik}" duyurusu`);
-    if (sonuc === 'tamam') {
-      ['duyuruBaslik','duyuruIcerik','duyuruTarih','duyuruYer'].forEach(id=>document.getElementById(id).value='');
-      if(fotoInput) fotoInput.value='';
-      bildirimGoster('Duyuru yayınlandı!','basari');
-      duyurularYukle && duyurularYukle();
-    }
-  } catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
-  finally { yukleniyorGoster(false); }
-};
-
-// Vefat ekle — onay sistemiyle
-window.vefatEkleOnay = async () => {
-  const ad = document.getElementById('vefatAd').value.trim();
-  if (!ad) { bildirimGoster('Ad Soyad zorunludur.','hata'); return; }
-  yukleniyorGoster(true);
-  try {
-    const veri = {
-      ad,
-      vefatTarihi: document.getElementById('vefatTarih').value ? new Date(document.getElementById('vefatTarih').value) : null,
-      yas: document.getElementById('vefatYas').value.trim(),
-      yer: document.getElementById('vefatYer').value.trim(),
-      namazYer: document.getElementById('vefatNamazYer').value.trim(),
-      namazSaat: document.getElementById('vefatNamazSaat').value,
-      defin: document.getElementById('vefatDefin').value.trim(),
-      taziyeAd: document.getElementById('vefatTaziyeAd').value.trim(),
-      taziyeTel: document.getElementById('vefatTaziyeTel').value.trim(),
-      not: document.getElementById('vefatNot').value.trim(),
-      yazarUid: window._mevcutKullanici.uid
-    };
-    const sonuc = await onayaGonder('vefat','ekle',veri,`"${ad}" vefat duyurusu`);
-    if (sonuc === 'tamam') {
-      ['vefatAd','vefatTarih','vefatYas','vefatYer','vefatNamazYer','vefatNamazSaat','vefatDefin','vefatTaziyeAd','vefatTaziyeTel','vefatNot']
-        .forEach(id=>document.getElementById(id).value='');
-      bildirimGoster('Vefat duyurusu yayınlandı.','basari');
-      vefatYukle && vefatYukle();
-    }
-  } catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
-  finally { yukleniyorGoster(false); }
-};
-
-// Arşiv ekle — onay sistemiyle
-window.arsivEkleOnay = async () => {
-  const baslik = document.getElementById('arsivBaslik').value.trim();
-  const icerik = document.getElementById('arsivMetin').value.trim();
-  if (!baslik||!icerik) { bildirimGoster('Başlık ve içerik zorunludur.','hata'); return; }
-  yukleniyorGoster(true);
-  try {
-    const ud = await window._getDoc(window._doc(window._db,'users',window._mevcutKullanici.uid));
-    const yazarAd = ud.exists()?ud.data().ad:'Admin';
-    const veri = {
-      baslik, icerik,
-      kategori: document.getElementById('arsivKat').value,
-      etiket: document.getElementById('arsivEtiket').value.split(',').map(e=>e.trim()).filter(Boolean),
-      yazarUid: window._mevcutKullanici.uid, yazarAd,
-      goruntuleme:0, version:1
-    };
-    const sonuc = await onayaGonder('arsiv','ekle',veri,`"${baslik}" arşiv makalesi`);
-    if (sonuc === 'tamam') {
-      ['arsivBaslik','arsivMetin','arsivEtiket'].forEach(id=>document.getElementById(id).value='');
-      window.arsivFormGizle && window.arsivFormGizle();
-      bildirimGoster('Makale yayınlandı!','basari');
-      arsivYukle && arsivYukle();
-    }
-  } catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
-  finally { yukleniyorGoster(false); }
-};
-
-// Silme — onay sistemiyle
-window.icerikSilOnay = async (koleksiyon, id, baslik, yenileFunc) => {
-  if (!confirm(`"${baslik}" silinecek. Onay için gönderilsin mi?`)) return;
-  const sonuc = await onayaGonder(koleksiyon,'sil',{id},`"${baslik}" silme işlemi`);
-  if (sonuc === 'tamam') { bildirimGoster('Silindi.','bilgi'); yenileFunc && yenileFunc(); }
-};
-
-// Muhtar kaydet — onay sistemiyle
-window.muhtarKaydetOnay = async () => {
-  const ad = document.getElementById('muhtarAd')?.value.trim();
-  const tel = document.getElementById('muhtarTel')?.value.trim();
-  if (!ad) { bildirimGoster('Ad Soyad zorunludur.','hata'); return; }
-  const sonuc = await onayaGonder('ayarlar','ayar',{docId:'muhtar',data:{ad,tel,guncellendi:new Date()}},'Muhtar bilgisi güncelleme');
-  if (sonuc === 'tamam') {
-    bildirimGoster('Muhtar bilgileri güncellendi!','basari');
-    muhtarYukle && muhtarYukle();
   }
+  durum.textContent = `✅ ${basarili} fotoğraf yüklendi!`;
+  input.value = '';
+  setTimeout(() => { durum.textContent = ''; }, 3000);
+  galeriYukleListesi();
 };
+
+// ── GALERİ LİSTESİ ────────────────────────────────
+window.galeriYukleListesi = async () => {
+  try {
+    const snap = await window._getDocs(
+      window._query(window._collection(window._db,'galeri'), window._orderBy('createdAt','desc'))
+    );
+    const grid = document.getElementById('galeriGrid');
+    if (snap.empty) {
+      grid.innerHTML = '<p style="color:var(--gri);font-size:.88rem">Henüz fotoğraf yok. Admin fotoğraf ekleyebilir.</p>';
+      return;
+    }
+    grid.innerHTML = snap.docs.map(d => {
+      const g = d.data();
+      return `<div class="galeri-item" data-lightbox="${g.url}">
+        <img src="${g.url}" alt="Köy fotoğrafı" loading="lazy">
+        ${window._mevcutRol && ['admin','superAdmin'].includes(window._mevcutRol) ?
+          `<button class="galeri-sil" data-galerisil="${d.id}">🗑️</button>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+};
+
+window.galeriSil = async (id) => {
+  if (!confirm('Bu fotoğrafı silmek istediğinizden emin misiniz?')) return;
+  await window._deleteDoc(window._doc(window._db,'galeri',id));
+  bildirimGoster('Fotoğraf silindi.','bilgi');
+  galeriYukleListesi();
+};
+
+// ── LİGHTBOX ──────────────────────────────────────
+window.lightboxAc = (url) => {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('ac');
+};
+window.lightboxKapat = () => {
+  document.getElementById('lightbox').classList.remove('ac');
+};
+document.addEventListener('keydown', e => { 
+  if(e.key==='Escape') { 
+    lightboxKapat(); 
+    document.querySelectorAll('[data-popup]').forEach(el=>el.remove());
+  }
+});
 </script>
 
 <script>
+
 // ══════════════════════════════════════════════════
-// ÖNERİ KUTUSU SİSTEMİ
+// HABER & DUYURU SLIDER SİSTEMİ
 // ══════════════════════════════════════════════════
-window.oneriGonder = async () => {
-  const metin = document.getElementById('oneriMetin')?.value.trim();
-  const durum = document.getElementById('oneriDurum');
-  if (!metin) { if(durum) durum.textContent = '⚠️ Öneri metni boş olamaz.'; return; }
-  try {
-    const veri = {
-      metin,
-      gondericUid: window._mevcutKullanici?.uid || null,
-      gondericAd: window._mevcutKullanici ? 'Kayıtlı Kullanıcı' : 'Ziyaretçi',
-      okundu: false,
-      createdAt: new Date()
-    };
-    // Firestore veya localStorage (giriş yoksa)
-    if (window._addDoc && window._collection && window._db) {
-      await window._addDoc(window._collection(window._db,'oneriler'), veri);
-    } else {
-      // Anonim: localStorage'a kaydet (sadece bu cihazda)
-      const key = 'oneri_' + Date.now();
-      localStorage.setItem(key, JSON.stringify(veri));
+/* _sliderState_dup */
+
+function haberSliderHTML(data, koleksiyon, tip) {
+  if (!data.length) return '<p style="color:var(--gri);font-size:.86rem;padding:8px 0">Henüz içerik yok.</p>';
+  const sliderId = koleksiyon + 'Slider';
+  const _rol = window._mevcutRol_getter ? window._mevcutRol_getter() : null;
+  const isSA = _rol === 'superAdmin';
+  const kartlar = data.map((item, i) => {
+    const baslik = (item.baslik || '—').replace(/"/g, '&quot;');
+    const icerikEnc = encodeURIComponent(item.icerik || '');
+    const baslikEnc = encodeURIComponent(item.baslik || '');
+    const fotoUrl = (item.fotoUrl || '').replace(/"/g, '');
+    const tarihStr = (window.tarihFormat || tarihFormat)(item.createdAt);
+    const itemId = item.id || '';
+
+    let silBtn = '';
+    if (_rol && ['admin','superAdmin'].includes(_rol)) {
+      if (isSA) {
+        silBtn = '<button data-sil="' + koleksiyon + '" data-id="' + itemId + '" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.72rem;z-index:5">🗑️</button>';
+      } else {
+        silBtn = '<button data-siliste="' + koleksiyon + '" data-id="' + itemId + '" data-ad="' + baslik.replace(/'/g,'') + '" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:4px;padding:3px 8px;cursor:pointer;font-size:.72rem;z-index:5">🗑️</button>';
+      }
     }
-    if(durum) { durum.textContent = '✅ Öneriniz iletildi, teşekkürler!'; }
-    document.getElementById('oneriMetin').value = '';
-    setTimeout(() => { if(durum) durum.textContent=''; }, 4000);
-  } catch(e) {
-    if(durum) durum.textContent = 'Hata: ' + e.message;
+
+    const kart = fotoUrl
+      ? '<div class="hkart" data-baslik="' + baslikEnc + '" data-icerik="' + icerikEnc + '" data-foto="' + fotoUrl + '" style="position:relative;cursor:pointer">'
+        + silBtn
+        + '<img class="hkart-foto" src="' + fotoUrl + '" alt="' + baslik + '" loading="lazy">'
+        + '<div class="hkart-overlay">'
+        + '<span class="hkart-etiket' + (tip==='duyuru'?' duyuru':'') + '">' + (tip==='haber'?'📰 Haber':'📢 Duyuru') + '</span>'
+        + '<div class="hkart-baslik">' + baslik + '</div>'
+        + '<div class="hkart-ozet">' + (item.icerik||'').substring(0,80) + ((item.icerik||'').length>80?'...':'') + '</div>'
+        + '<div class="hkart-meta">' + tarihStr + '</div>'
+        + '</div></div>'
+      : '<div class="hkart" data-baslik="' + baslikEnc + '" data-icerik="' + icerikEnc + '" data-foto="" style="position:relative;cursor:pointer">'
+        + silBtn
+        + '<div class="hkart-foto-placeholder">' + (tip==='haber'?'📰':'📢') + '</div>'
+        + '<div class="hkart-icerik">'
+        + '<span class="hkart-etiket' + (tip==='duyuru'?' duyuru':'') + '">' + (tip==='haber'?'📰 Haber':'📢 Duyuru') + '</span>'
+        + '<div class="hkart-baslik">' + baslik + '</div>'
+        + '<div class="hkart-ozet">' + (item.icerik||'').substring(0,100) + ((item.icerik||'').length>100?'...':'') + '</div>'
+        + '<div class="hkart-meta">' + tarihStr + '</div>'
+        + '</div></div>';
+    return kart;
+  }).join('');
+
+  const dots = data.map((_,i) =>
+    '<button class="hkart-dot' + (i===0?' aktif':'') + '" data-slider="' + sliderId + '" data-idx="' + i + '"></button>'
+  ).join('');
+
+  return '<div id="' + sliderId + 'Wrap" class="hkart-slider-wrap">'
+    + '<div class="hkart-track" id="' + sliderId + 'Track">' + kartlar + '</div>'
+    + '</div>'
+    + (data.length > 1
+      ? '<div class="hkart-nav">'
+        + '<div class="hkart-dots" id="' + sliderId + 'Dots">' + dots + '</div>'
+        + '<div class="hkart-oklar">'
+        + '<button class="hkart-ok" data-slider="' + sliderId + '" data-yon="-1">&#8249;</button>'
+        + '<span class="hkart-sayac" id="' + sliderId + 'Sayac">1 / ' + data.length + '</span>'
+        + '<button class="hkart-ok" data-slider="' + sliderId + '" data-yon="1">&#8250;</button>'
+        + '</div></div>'
+      : '');
+}
+
+function haberSliderBagla(sliderId, data, koleksiyon) {
+  _sliderState[sliderId] = { index: 0, total: data.length, timer: null };
+  if (data.length > 1) {
+    _sliderState[sliderId].timer = setInterval(() => _sliderGit(sliderId, 1), 5000);
   }
+  // Event delegation - kartlara tıklama + silme
+  const wrap = document.getElementById(sliderId + 'Wrap');
+  if (wrap) {
+    wrap.addEventListener('click', function(e) {
+      // Sil butonu
+      const silBtn = e.target.closest('[data-sil]');
+      if (silBtn) {
+        e.stopPropagation();
+        window._silveYenile(silBtn.dataset.sil, silBtn.dataset.id).then(() => {
+          if (koleksiyon==='haberler' && window.haberlerYukle) window.haberlerYukle();
+          if (koleksiyon==='duyurular' && window.duyurularYukle) window.duyurularYukle();
+        });
+        return;
+      }
+      const silIsteBtn = e.target.closest('[data-siliste]');
+      if (silIsteBtn) {
+        e.stopPropagation();
+        window._silIste(silIsteBtn.dataset.siliste, silIsteBtn.dataset.id, silIsteBtn.dataset.ad);
+        return;
+      }
+      // Kart tıklama - detay popup
+      const kart = e.target.closest('[data-baslik]');
+      if (kart) {
+        window.detayGosterFoto(kart.dataset.baslik, kart.dataset.icerik, kart.dataset.foto || '');
+      }
+    });
+  }
+  // Dots ve oklar event delegation
+  const nav = wrap?.nextElementSibling;
+  if (nav) {
+    nav.addEventListener('click', function(e) {
+      const dot = e.target.closest('[data-slider][data-idx]');
+      if (dot) { _sliderGit(dot.dataset.slider, parseInt(dot.dataset.idx), true); return; }
+      const ok = e.target.closest('[data-slider][data-yon]');
+      if (ok) { _sliderGit(ok.dataset.slider, parseInt(ok.dataset.yon)); }
+    });
+  }
+}
+
+window._sliderGit = (sliderId, yon, direkt=false) => {
+  const state = _sliderState[sliderId];
+  if (!state) return;
+  if (direkt) {
+    state.index = yon;
+  } else {
+    state.index = (state.index + yon + state.total) % state.total;
+  }
+  const track = document.getElementById(sliderId + 'Track');
+  if (track) track.style.transform = `translateX(-${state.index * 100}%)`;
+  const dots = document.querySelectorAll(`#${sliderId}Dots .hkart-dot`);
+  dots.forEach((d,i) => d.classList.toggle('aktif', i === state.index));
+  const sayac = document.getElementById(sliderId + 'Sayac');
+  if (sayac) sayac.textContent = `${state.index+1} / ${state.total}`;
+  // Timer sıfırla
+  if (!direkt) return;
+  if (state.timer) clearInterval(state.timer);
+  if (state.total > 1) state.timer = setInterval(() => _sliderGit(sliderId, 1), 5000);
 };
 
-window.oneriListesiYukle = async () => {
-  const liste = document.getElementById('oneriListesi');
-  if (!liste) return;
+// detayGosterFoto'yu güncelle - encoded başlık için
+window.detayGosterFoto = (baslikEnc, icerikEnc, fotoUrl) => {
+  const baslik = decodeURIComponent(baslikEnc);
+  const icerik = decodeURIComponent(icerikEnc);
+  const o = document.createElement('div');
+  o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px';
+  o.setAttribute('data-popup','1');
+  o.addEventListener('click',e=>{if(e.target===o)o.remove();});
+  o.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:680px;width:100%;max-height:88vh;overflow-y:auto;position:relative">
+    <button onclick="document.querySelectorAll('[data-popup]').forEach(el=>el.remove())" style="position:absolute;top:11px;right:13px;background:none;border:none;font-size:1.3rem;cursor:pointer;color:#666;z-index:1">✕</button>
+    ${fotoUrl ? `<img src="${fotoUrl}" style="width:100%;max-height:320px;object-fit:cover;border-radius:12px 12px 0 0">` : ''}
+    <div style="padding:24px 28px">
+      <h2 style="font-family:'Playfair Display',serif;font-size:1.65rem;margin-bottom:14px;color:#5C3D1E">${baslik}</h2>
+      <div style="font-size:1rem;line-height:1.9;white-space:pre-wrap;color:#333">${icerik}</div>
+    </div>
+  </div>`;
+  o.addEventListener('click',e=>{if(e.target===o)o.remove();});
+  document.body.appendChild(o);
+};
+
+
+
+// ══════════════════════════════════════════════════
+// CLOUDINARY CONFIG
+// ══════════════════════════════════════════════════
+const CLOUD_NAME   = 'dyrpd9y4y';
+const UPLOAD_PRESET = 'basansarnic';
+const CLOUD_URL    = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+
+// ── Cloudinary'e fotoğraf yükle ────────────────────
+async function cloudinaryYukle(file, klasor='galeri') {
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('upload_preset', UPLOAD_PRESET);
+  fd.append('folder', klasor);
+  const res = await fetch(CLOUD_URL, { method:'POST', body:fd });
+  const data = await res.json();
+  if (data.secure_url) return data.secure_url;
+  throw new Error('Yükleme başarısız: ' + JSON.stringify(data));
+}
+
+// ── Önizleme göster ────────────────────────────────
+window.onizleGoster = (input, onizId, silId) => {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const oniz = document.getElementById(onizId);
+    const sil = document.getElementById(silId);
+    oniz.src = e.target.result;
+    oniz.style.display = 'block';
+    sil.style.display = 'inline';
+  };
+  reader.readAsDataURL(file);
+};
+
+window.fotoSifirla = (inputId, onizId, silId) => {
+  document.getElementById(inputId).value = '';
+  const oniz = document.getElementById(onizId);
+  const sil = document.getElementById(silId);
+  oniz.src = ''; oniz.style.display = 'none';
+  sil.style.display = 'none';
+};
+
+// ── GALERİ YÜKLEMESİ ──────────────────────────────
+window.galeriYukle = async (input) => {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  const durum = document.getElementById('yuklemeDurumu');
+  durum.textContent = `⏳ ${files.length} fotoğraf yükleniyor...`;
+
+  let basarili = 0;
+  for (const file of files) {
+    try {
+      const url = await cloudinaryYukle(file, 'galeri');
+      // Firestore'a kaydet
+      await window._addDoc(window._collection(window._db,'galeri'), {
+        url, yukleyenUid: window._mevcutKullanici?.uid || '',
+        createdAt: window._serverTimestamp()
+      });
+      basarili++;
+      durum.textContent = `⏳ ${basarili}/${files.length} yüklendi...`;
+    } catch(e) {
+      console.error('Yükleme hatası:', e);
+    }
+  }
+  durum.textContent = `✅ ${basarili} fotoğraf yüklendi!`;
+  input.value = '';
+  setTimeout(() => { durum.textContent = ''; }, 3000);
+  galeriYukleListesi();
+};
+
+// ── GALERİ LİSTESİ ────────────────────────────────
+window.galeriYukleListesi = async () => {
   try {
     const snap = await window._getDocs(
-      window._query(
-        window._collection(window._db,'oneriler'),
-        window._orderBy('createdAt','desc')
-      )
+      window._query(window._collection(window._db,'galeri'), window._orderBy('createdAt','desc'))
     );
+    const grid = document.getElementById('galeriGrid');
     if (snap.empty) {
-      liste.innerHTML = '<p style="color:#666;font-size:.84rem">Henüz öneri yok.</p>';
+      grid.innerHTML = '<p style="color:var(--gri);font-size:.88rem">Henüz fotoğraf yok. Admin fotoğraf ekleyebilir.</p>';
       return;
     }
-    liste.innerHTML = snap.docs.map(d => {
-      const o = d.data();
-      const tarih = o.createdAt?.toDate
-        ? o.createdAt.toDate().toLocaleDateString('tr-TR', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})
-        : new Date(o.createdAt?.seconds*1000||o.createdAt).toLocaleDateString('tr-TR');
-      return `<div style="background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:12px 14px;margin-bottom:8px">
-        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px">
-          <p style="color:#ddd;font-size:.88rem;flex:1;line-height:1.6">${o.metin||'—'}</p>
-          <button onclick="oneriSil('${d.id}')" style="padding:3px 9px;background:#7f1d1d;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:.72rem;flex-shrink:0">Sil</button>
-        </div>
-        <div style="color:#555;font-size:.74rem;margin-top:6px">${o.gondericAd||'Ziyaretçi'} · ${tarih}</div>
+    grid.innerHTML = snap.docs.map(d => {
+      const g = d.data();
+      return `<div class="galeri-item" data-lightbox="${g.url}">
+        <img src="${g.url}" alt="Köy fotoğrafı" loading="lazy">
+        ${window._mevcutRol && ['admin','superAdmin'].includes(window._mevcutRol) ?
+          `<button class="galeri-sil" data-galerisil="${d.id}">🗑️</button>` : ''}
       </div>`;
     }).join('');
-  } catch(e) {
-    liste.innerHTML = '<p style="color:#f87171;font-size:.84rem">Yüklenemedi: '+e.message+'</p>';
-  }
+  } catch(e) { console.error(e); }
 };
 
-window.oneriSil = async (id) => {
-  if (!confirm('Bu öneriyi silmek istediğinizden emin misiniz?')) return;
-  try {
-    await window._deleteDoc(window._doc(window._db,'oneriler',id));
-    bildirimGoster('Silindi.','bilgi');
-    oneriListesiYukle();
-  } catch(e) { bildirimGoster('Hata: '+e.message,'hata'); }
+window.galeriSil = async (id) => {
+  if (!confirm('Bu fotoğrafı silmek istediğinizden emin misiniz?')) return;
+  await window._deleteDoc(window._doc(window._db,'galeri',id));
+  bildirimGoster('Fotoğraf silindi.','bilgi');
+  galeriYukleListesi();
 };
+
+// ── LİGHTBOX ──────────────────────────────────────
+window.lightboxAc = (url) => {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('ac');
+};
+window.lightboxKapat = () => {
+  document.getElementById('lightbox').classList.remove('ac');
+};
+document.addEventListener('keydown', e => { 
+  if(e.key==='Escape') { 
+    lightboxKapat(); 
+    document.querySelectorAll('[data-popup]').forEach(el=>el.remove());
+  }
+});
 </script>
 </body>
 </html>

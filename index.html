@@ -1693,7 +1693,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const galSil = e.target.closest('[data-galeri-sil]');
     if (galSil) {
       e.stopPropagation();
-      if (confirm('Sil?') && typeof window.fbSil === 'function') window.fbSil('galeri', galSil.dataset.galeriSil).then(() => { typeof galeriYukle === 'function' && galeriYukle(); });
+      if (confirm('Sil?') && typeof window.fbSil === 'function') window.fbSil('galeri', galSil.dataset.galeriSil).then(() => { typeof window.galeriYukle === 'function' && window.galeriYukle(); });
       return;
     }
 
@@ -1701,7 +1701,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const icSil = e.target.closest('[data-icerik-sil-kol]');
     if (icSil) {
       if (confirm('"' + (icSil.dataset.icerikSilAd || '?') + '" silinsin mi?') && typeof window.fbSil === 'function') {
-        deleteDoc(doc(db, icSil.dataset.icerikSilKol, icSil.dataset.icerikSilId)).then(() => { typeof adminIcerikler === 'function' && adminIcerikler(); typeof sayfaYukle === 'function' && sayfaYukle(); bildir('Silindi.', 'info'); });
+        deleteDoc(doc(db, icSil.dataset.icerikSilKol, icSil.dataset.icerikSilId)).then(() => { typeof window.adminIcerikler === 'function' && window.adminIcerikler(); typeof window.sayfaYukle === 'function' && window.sayfaYukle(); bildir('Silindi.', 'info'); });
       }
       return;
     }
@@ -1720,38 +1720,38 @@ document.addEventListener('DOMContentLoaded', function() {
     if (arsivSil) {
       e.stopPropagation();
       if (confirm('Sil?') && typeof window.fbSil === 'function') {
-        deleteDoc(doc(db, arsivSil.dataset.silKol, arsivSil.dataset.silId)).then(() => { if (typeof arsivYukle === 'function') arsivYukle(); bildir('Silindi.', 'info'); });
+        deleteDoc(doc(db, arsivSil.dataset.silKol, arsivSil.dataset.silId)).then(() => { if (typeof window.arsivYukle === 'function') window.arsivYukle(); bildir('Silindi.', 'info'); });
       }
       return;
     }
 
     // Mesaj sil
     const mSil = e.target.closest('[data-mesaj-sil]');
-    if (mSil) { if (confirm('Sil?') && typeof window.fbSil === 'function') window.fbSil('mesajlar', mSil.dataset.mesajSil).then(() => { typeof mesajlariYukle === 'function' && mesajlariYukle(); typeof adminMesajlar === 'function' && adminMesajlar(); }); return; }
+    if (mSil) { if (confirm('Sil?') && typeof window.fbSil === 'function') window.fbSil('mesajlar', mSil.dataset.mesajSil).then(() => { typeof window.mesajlariYukle === 'function' && window.mesajlariYukle(); typeof window.adminMesajlar === 'function' && window.adminMesajlar(); }); return; }
 
     // Mesaj onayla
     const mOnay = e.target.closest('[data-mesaj-onayla]');
-    if (mOnay) { if (typeof window.fbGuncelle === 'function') window.fbGuncelle('mesajlar', mOnay.dataset.mesajOnayla, { status: 'approved' }).then(() => { typeof adminMesajlar === 'function' && adminMesajlar(); typeof mesajlariYukle === 'function' && mesajlariYukle(); bildir('Onaylandı!'); }); return; }
+    if (mOnay) { if (typeof window.fbGuncelle === 'function') window.fbGuncelle('mesajlar', mOnay.dataset.mesajOnayla, { status: 'approved' }).then(() => { typeof window.adminMesajlar === 'function' && window.adminMesajlar(); typeof window.mesajlariYukle === 'function' && window.mesajlariYukle(); bildir('Onaylandı!'); }); return; }
 
     // Mesaj reddet
     const mRed = e.target.closest('[data-mesaj-reddet]');
-    if (mRed) { if (typeof window.fbSil === 'function') window.fbSil('mesajlar', mRed.dataset.mesajReddet).then(() => { typeof adminMesajlar === 'function' && adminMesajlar(); bildir('Reddedildi.', 'info'); }); return; }
+    if (mRed) { if (typeof window.fbSil === 'function') window.fbSil('mesajlar', mRed.dataset.mesajReddet).then(() => { typeof window.adminMesajlar === 'function' && window.adminMesajlar(); bildir('Reddedildi.', 'info'); }); return; }
 
     // Kullanıcı onayla
     const kulOnay = e.target.closest('[data-kul-onay]');
-    if (kulOnay) { if (typeof window.fbGuncelle === 'function') window.fbGuncelle('users', kulOnay.dataset.kulOnay, { status: kulOnay.dataset.kulDurum }).then(() => { typeof adminKullanicilar === 'function' && adminKullanicilar(); bildir(kulOnay.dataset.kulDurum === 'approved' ? 'Onaylandı!' : 'Reddedildi.', kulOnay.dataset.kulDurum === 'approved' ? 'ok' : 'info'); }); return; }
+    if (kulOnay) { if (typeof window.fbGuncelle === 'function') window.fbGuncelle('users', kulOnay.dataset.kulOnay, { status: kulOnay.dataset.kulDurum }).then(() => { typeof window.adminKullanicilar === 'function' && window.adminKullanicilar(); bildir(kulOnay.dataset.kulDurum === 'approved' ? 'Onaylandı!' : 'Reddedildi.', kulOnay.dataset.kulDurum === 'approved' ? 'ok' : 'info'); }); return; }
 
     // Kullanıcı sil
     const kulSil = e.target.closest('[data-kul-sil]');
-    if (kulSil) { if (confirm('Kullanıcıyı sil?') && typeof window.fbSil === 'function') window.fbSil('users', kulSil.dataset.kulSil).then(() => { typeof adminKullanicilar === 'function' && adminKullanicilar(); bildir('Silindi.', 'info'); }); return; }
+    if (kulSil) { if (confirm('Kullanıcıyı sil?') && typeof window.fbSil === 'function') window.fbSil('users', kulSil.dataset.kulSil).then(() => { typeof window.adminKullanicilar === 'function' && window.adminKullanicilar(); bildir('Silindi.', 'info'); }); return; }
 
     // Kullanıcı rol
     const kulRol = e.target.closest('[data-kul-rol]');
-    if (kulRol) { if (confirm('Admin yap?') && typeof window.fbGuncelle === 'function') window.fbGuncelle('users', kulRol.dataset.kulRol, { rol: 'admin' }).then(() => { typeof adminKullanicilar === 'function' && adminKullanicilar(); bildir('Rol güncellendi!'); }); return; }
+    if (kulRol) { if (confirm('Admin yap?') && typeof window.fbGuncelle === 'function') window.fbGuncelle('users', kulRol.dataset.kulRol, { rol: 'admin' }).then(() => { typeof window.adminKullanicilar === 'function' && window.adminKullanicilar(); bildir('Rol güncellendi!'); }); return; }
 
     // Ban kaldır
     const banEl = e.target.closest('[data-ban-kaldir]');
-    if (banEl) { if (typeof window.fbGuncelle === 'function') window.fbGuncelle('users', banEl.dataset.banKaldir, { mesajBan: false, banSebebi: '' }).then(() => { typeof adminBanlilar === 'function' && adminBanlilar(); bildir('Ban kaldırıldı.'); }); return; }
+    if (banEl) { if (typeof window.fbGuncelle === 'function') window.fbGuncelle('users', banEl.dataset.banKaldir, { mesajBan: false, banSebebi: '' }).then(() => { typeof window.adminBanlilar === 'function' && window.adminBanlilar(); bildir('Ban kaldırıldı.'); }); return; }
 
     // Onay onayla
     const onayOn = e.target.closest('[data-onay-onayla]');
@@ -1763,7 +1763,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Öneri sil
     const oneriSilEl = e.target.closest('[data-oneri-sil]');
-    if (oneriSilEl) { if (confirm('Sil?') && typeof window.fbSil === 'function') window.fbSil('oneriler', oneriSilEl.dataset.oneriSil).then(() => { typeof adminOneriler === 'function' && adminOneriler(); bildir('Silindi.', 'info'); }); return; }
+    if (oneriSilEl) { if (confirm('Sil?') && typeof window.fbSil === 'function') window.fbSil('oneriler', oneriSilEl.dataset.oneriSil).then(() => { typeof window.adminOneriler === 'function' && window.adminOneriler(); bildir('Silindi.', 'info'); }); return; }
   });
 
   // ARŞİV FİLTRELEME

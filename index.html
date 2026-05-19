@@ -774,11 +774,7 @@ const sliders = {};
 
 // ── YARDIMCILAR ────────────────────────────────────────────
 function yuk(ac) { document.getElementById('yukOv').classList.toggle('ac', ac); }
-function bildir(mesaj, tip = 'ok') {
-  const b = document.getElementById('bildirim');
-  b.textContent = mesaj; b.className = 'bildirim ac ' + tip;
-  clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('ac'), 3500);
-}
+// bildir normal script'te tanımlı, window üzerinden çağır
 function tarih(ts) {
   if (!ts) return '—';
   const d = ts.toDate ? ts.toDate() : new Date(ts.seconds ? ts.seconds * 1000 : ts);
@@ -1041,7 +1037,7 @@ async function onayaGonder(tip, aksiyon, veri, aciklama) {
     durum: 'bekliyor',
     createdAt: serverTimestamp()
   });
-  bildir('✅ Onay için gönderildi!', 'info');
+  window.bildir('✅ Onay için gönderildi!', 'info');
   return 'bekleniyor';
 }
 
@@ -1109,7 +1105,7 @@ function headerGuncelle(u, ud) {
   if (u && ud) {
     ha.innerHTML = '<span style="color:var(--krem-koyu);font-size:.85rem">👤 ' + (ud.ad || u.email) + '</span>' +
       '<button class="btn btn-giris" id="btnCikis">Çıkış</button>';
-    document.getElementById('btnCikis').onclick = () => signOut(auth).then(() => bildir('Çıkış yapıldı.', 'info'));
+    document.getElementById('btnCikis').onclick = () => signOut(auth).then(() => window.bildir('Çıkış yapıldı.', 'info'));
     const isA = ['admin', 'superAdmin'].includes(ud.rol);
     na.style.display = isA ? 'block' : 'none';
     // Admin formlarını göster
@@ -1170,18 +1166,18 @@ function modalErr(m) { const e = document.getElementById('modalErr'); e.textCont
 function modalOk(m) { const e = document.getElementById('modalOk'); e.textContent = m; e.classList.add('ac'); document.getElementById('modalErr').classList.remove('ac'); }
 
 // GİRİŞ
-document.getElementById('btnGirisYap').onclick = async () => {
+window.girisYap = async () => {
   const email = document.getElementById('inpGirisEmail').value.trim();
   const sifre = document.getElementById('inpGirisSifre').value;
   if (!email || !sifre) { modalErr('Tüm alanları doldurun.'); return; }
   yuk(true);
-  try { await signInWithEmailAndPassword(auth, email, sifre); modalKapat(); bildir('✓ Giriş yapıldı!'); }
+  try { await signInWithEmailAndPassword(auth, email, sifre); modalKapat(); window.bildir('✓ Giriş yapıldı!'); }
   catch (e) { modalErr(e.code === 'auth/invalid-credential' ? 'E-posta veya şifre hatalı.' : 'Hata: ' + e.message); }
   finally { yuk(false); }
 };
 
 // KAYIT
-document.getElementById('btnKayitYap').onclick = async () => {
+window.kayitOl = async () => {
   const ad = document.getElementById('inpKayitAd').value.trim();
   const email = document.getElementById('inpKayitEmail').value.trim();
   const sifre = document.getElementById('inpKayitSifre').value;
@@ -1192,13 +1188,13 @@ document.getElementById('btnKayitYap').onclick = async () => {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email, sifre);
     await setDoc(doc(db, 'users', cred.user.uid), { uid: cred.user.uid, ad, email, bag, rol: 'koylu', status: 'approved', mesajBan: false, createdAt: serverTimestamp() });
-    modalKapat(); bildir('✓ Kayıt başarılı! Hoş geldiniz ' + ad + '!');
+    modalKapat(); window.bildir('✓ Kayıt başarılı! Hoş geldiniz ' + ad + '!');
   } catch (e) { modalErr(e.code === 'auth/email-already-in-use' ? 'Bu e-posta zaten kayıtlı.' : 'Hata: ' + e.message); }
   finally { yuk(false); }
 };
 
 // ŞİFRE SIFIRLA
-document.getElementById('lnkSifreSifirla').onclick = async () => {
+window.sifreSifirla = async () => {
   const email = document.getElementById('inpGirisEmail').value.trim();
   if (!email) { modalErr('E-posta girin.'); return; }
   try { await sendPasswordResetEmail(auth, email); modalOk('Şifre sıfırlama e-postası gönderildi.'); }
@@ -1208,25 +1204,25 @@ document.getElementById('lnkSifreSifirla').onclick = async () => {
 // ── İÇERİK EKLEME ──────────────────────────────────────────
 async function getYazarAd() { const ud = await getDoc(doc(db, 'users', user.uid)); return ud.exists() ? ud.data().ad : 'Admin'; }
 
-document.getElementById('btnHaberEkle').onclick = async () => {
+window.haberEkle = async () => {
   const baslik = document.getElementById('inpHaberBaslik').value.trim();
   const icerik = document.getElementById('inpHaberIcerik').value.trim();
-  if (!baslik || !icerik) { bildir('Başlık ve içerik zorunlu.', 'err'); return; }
+  if (!baslik || !icerik) { window.bildir('Başlık ve içerik zorunlu.', 'err'); return; }
   yuk(true);
   try {
     let fotoUrl = null;
     const fi = document.getElementById('inpHaberFoto');
-    if (fi.files[0]) { bildir('Fotoğraf yükleniyor...', 'info'); fotoUrl = await cloudYukle(fi.files[0], 'haberler'); }
+    if (fi.files[0]) { window.bildir('Fotoğraf yükleniyor...', 'info'); fotoUrl = await cloudYukle(fi.files[0], 'haberler'); }
     const yazarAd = await getYazarAd();
     const r = await onayaGonder('haberler', 'ekle', { baslik, icerik, fotoUrl, yazarAd, yazarUid: user.uid }, '"' + baslik + '" haberi');
-    if (r === 'tamam') { bildir('✓ Haber yayınlandı!'); haberleriYukle(); document.getElementById('inpHaberBaslik').value = ''; document.getElementById('inpHaberIcerik').value = ''; fi.value = ''; }
-  } catch (e) { bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
+    if (r === 'tamam') { window.bildir('✓ Haber yayınlandı!'); haberleriYukle(); document.getElementById('inpHaberBaslik').value = ''; document.getElementById('inpHaberIcerik').value = ''; fi.value = ''; }
+  } catch (e) { window.bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
 };
 
-document.getElementById('btnDuyuruEkle').onclick = async () => {
+window.duyuruEkle = async () => {
   const baslik = document.getElementById('inpDuyuruBaslik').value.trim();
   const icerik = document.getElementById('inpDuyuruIcerik').value.trim();
-  if (!baslik || !icerik) { bildir('Başlık ve içerik zorunlu.', 'err'); return; }
+  if (!baslik || !icerik) { window.bildir('Başlık ve içerik zorunlu.', 'err'); return; }
   yuk(true);
   try {
     let fotoUrl = null;
@@ -1235,40 +1231,40 @@ document.getElementById('btnDuyuruEkle').onclick = async () => {
     const yazarAd = await getYazarAd();
     const veri = { baslik, icerik, fotoUrl, yazarAd, yazarUid: user.uid, tur: document.getElementById('inpDuyuruTur').value, tarih: document.getElementById('inpDuyuruTarih').value, yer: document.getElementById('inpDuyuruYer').value.trim() };
     const r = await onayaGonder('duyurular', 'ekle', veri, '"' + baslik + '" duyurusu');
-    if (r === 'tamam') { bildir('✓ Duyuru yayınlandı!'); duyurulariYukle(); ['inpDuyuruBaslik','inpDuyuruIcerik','inpDuyuruTarih','inpDuyuruYer'].forEach(id => document.getElementById(id).value = ''); fi.value = ''; }
-  } catch (e) { bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
+    if (r === 'tamam') { window.bildir('✓ Duyuru yayınlandı!'); duyurulariYukle(); ['inpDuyuruBaslik','inpDuyuruIcerik','inpDuyuruTarih','inpDuyuruYer'].forEach(id => document.getElementById(id).value = ''); fi.value = ''; }
+  } catch (e) { window.bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
 };
 
-document.getElementById('btnVefatEkle').onclick = async () => {
+window.vefatEkle = async () => {
   const ad = document.getElementById('inpVAd').value.trim();
-  if (!ad) { bildir('Ad Soyad zorunlu.', 'err'); return; }
+  if (!ad) { window.bildir('Ad Soyad zorunlu.', 'err'); return; }
   yuk(true);
   try {
     const veri = { ad, yas: document.getElementById('inpVYas').value, vefatTarihi: document.getElementById('inpVTarih').value ? new Date(document.getElementById('inpVTarih').value) : null, yer: document.getElementById('inpVYer').value, namazYer: document.getElementById('inpVNamazYer').value, namazSaat: document.getElementById('inpVNamazSaat').value, defin: document.getElementById('inpVDefin').value, taziyeAd: document.getElementById('inpVTazAd').value, taziyeTel: document.getElementById('inpVTazTel').value, not: document.getElementById('inpVNot').value, yazarUid: user.uid };
     const r = await onayaGonder('vefat', 'ekle', veri, '"' + ad + '" vefat duyurusu');
-    if (r === 'tamam') { bildir('✓ Vefat duyurusu yayınlandı.'); vefatlariYukle(); ['inpVAd','inpVYas','inpVTarih','inpVYer','inpVNamazYer','inpVNamazSaat','inpVDefin','inpVTazAd','inpVTazTel','inpVNot'].forEach(id => document.getElementById(id).value = ''); }
-  } catch (e) { bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
+    if (r === 'tamam') { window.bildir('✓ Vefat duyurusu yayınlandı.'); vefatlariYukle(); ['inpVAd','inpVYas','inpVTarih','inpVYer','inpVNamazYer','inpVNamazSaat','inpVDefin','inpVTazAd','inpVTazTel','inpVNot'].forEach(id => document.getElementById(id).value = ''); }
+  } catch (e) { window.bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
 };
 
-document.getElementById('btnArsivEkle').onclick = async () => {
+window.arsivEkle = async () => {
   const baslik = document.getElementById('inpArsivBaslik').value.trim();
   const icerik = document.getElementById('inpArsivIcerik').value.trim();
-  if (!baslik || !icerik) { bildir('Başlık ve içerik zorunlu.', 'err'); return; }
+  if (!baslik || !icerik) { window.bildir('Başlık ve içerik zorunlu.', 'err'); return; }
   yuk(true);
   try {
     const yazarAd = await getYazarAd();
     const veri = { baslik, icerik, kategori: document.getElementById('inpArsivKat').value, etiket: document.getElementById('inpArsivEtiket').value.split(',').map(e => e.trim()).filter(Boolean), yazarAd, yazarUid: user.uid, goruntuleme: 0 };
     const r = await onayaGonder('arsiv', 'ekle', veri, '"' + baslik + '" arşiv makalesi');
-    if (r === 'tamam') { bildir('✓ Makale yayınlandı!'); arsivYukle(); ['inpArsivBaslik','inpArsivIcerik','inpArsivEtiket'].forEach(id => document.getElementById(id).value = ''); document.getElementById('arsivEkleForm').style.display = 'none'; }
-  } catch (e) { bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
+    if (r === 'tamam') { window.bildir('✓ Makale yayınlandı!'); arsivYukle(); ['inpArsivBaslik','inpArsivIcerik','inpArsivEtiket'].forEach(id => document.getElementById(id).value = ''); document.getElementById('arsivEkleForm').style.display = 'none'; }
+  } catch (e) { window.bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
 };
 
 // MESAJ GÖNDER
-document.getElementById('btnMesajGonder').onclick = async () => {
-  if (!user) { bildir('Giriş yapın.', 'err'); return; }
+window.mesajGonder = async () => {
+  if (!user) { window.bildir('Giriş yapın.', 'err'); return; }
   const baslik = document.getElementById('inpMesajBaslik').value.trim();
   const icerik = document.getElementById('inpMesajIcerik').value.trim();
-  if (!baslik || !icerik) { bildir('Başlık ve mesaj zorunlu.', 'err'); return; }
+  if (!baslik || !icerik) { window.bildir('Başlık ve mesaj zorunlu.', 'err'); return; }
   yuk(true);
   try {
     const kontrol = await argoKontrol(baslik + ' ' + icerik);
@@ -1278,36 +1274,36 @@ document.getElementById('btnMesajGonder').onclick = async () => {
       document.getElementById('btnMesajGonder').disabled = true;
       document.getElementById('inpMesajBaslik').disabled = true;
       document.getElementById('inpMesajIcerik').disabled = true;
-      bildir('⛔ Uygunsuz içerik tespit edildi. Hesabınız kısıtlandı.', 'err');
+      window.bildir('⛔ Uygunsuz içerik tespit edildi. Hesabınız kısıtlandı.', 'err');
       return;
     }
     const yazarAd = await getYazarAd();
     await addDoc(collection(db, 'mesajlar'), { baslik, icerik, yazarAd, yazarUid: user.uid, status: 'pending', aiSkor: kontrol.skor || 0, createdAt: serverTimestamp() });
     document.getElementById('inpMesajBaslik').value = '';
     document.getElementById('inpMesajIcerik').value = '';
-    bildir('✓ Mesajınız admin onayına gönderildi!');
-  } catch (e) { bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
+    window.bildir('✓ Mesajınız admin onayına gönderildi!');
+  } catch (e) { window.bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
 };
 
 // MUHTAR KAYDET
-document.getElementById('btnMuhtarKaydet').onclick = async () => {
+window.muhtarKaydet = async () => {
   const ad = document.getElementById('inpMuhtarAd').value.trim();
   const tel = document.getElementById('inpMuhtarTel').value.trim();
-  if (!ad) { bildir('Ad zorunlu.', 'err'); return; }
+  if (!ad) { window.bildir('Ad zorunlu.', 'err'); return; }
   const r = await onayaGonder('ayarlar', 'ayar', { docId: 'muhtar', data: { ad, tel } }, 'Muhtar bilgisi güncelleme');
-  if (r === 'tamam') { bildir('✓ Muhtar güncellendi!'); muhtarYukle(); }
+  if (r === 'tamam') { window.bildir('✓ Muhtar güncellendi!'); muhtarYukle(); }
 };
 
 // HERO FOTO
-document.getElementById('inpHeroFoto').onchange = (e) => {
+window.heroFotoOnchange = (e) => {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = (ev) => { const img = document.getElementById('heroOnizleme'); img.src = ev.target.result; img.style.display = 'block'; };
   reader.readAsDataURL(file);
 };
-document.getElementById('btnHeroGonder').onclick = async () => {
+window.heroGonder = async () => {
   const fi = document.getElementById('inpHeroFoto');
-  if (!fi.files[0]) { bildir('Fotoğraf seçin.', 'err'); return; }
+  if (!fi.files[0]) { window.bildir('Fotoğraf seçin.', 'err'); return; }
   yuk(true);
   const durum = document.getElementById('heroDurum');
   durum.textContent = '⏳ Yükleniyor...';
@@ -1316,11 +1312,11 @@ document.getElementById('btnHeroGonder').onclick = async () => {
     const r = await onayaGonder('', 'hero', { url }, 'Hero fotoğrafı değiştirme');
     durum.textContent = r === 'tamam' ? '✅ Uygulandı!' : '⏳ Onay bekleniyor...';
     fi.value = ''; document.getElementById('heroOnizleme').style.display = 'none';
-  } catch (e) { bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
+  } catch (e) { window.bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
 };
 
 // GALERİ YÜKLEME
-document.getElementById('inpGaleriFoto').onchange = async (e) => {
+window.galeriFotoOnchange = async (e) => {
   const files = Array.from(e.target.files);
   const durum = document.getElementById('galeriDurum');
   durum.textContent = '⏳ ' + files.length + ' fotoğraf yükleniyor...';
@@ -1486,16 +1482,16 @@ async function onayOnayla(id) {
     const o = s.data();
     await islemUygula(o.tip, o.aksiyon, o.veri);
     await updateDoc(doc(db, 'onay_bekleyen', id), { durum: 'onaylandi', onaylayanUid: user.uid, onayTarihi: serverTimestamp() });
-    bildir('✅ Onaylandı ve uygulandı!');
+    window.bildir('✅ Onaylandı ve uygulandı!');
     adminOnaylar();
     sayfaYukle();
-  } catch (e) { bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
+  } catch (e) { window.bildir('Hata: ' + e.message, 'err'); } finally { yuk(false); }
 }
 
 async function onayReddet(id) {
   if (!confirm('Reddetmek istediğinizden emin misiniz?')) return;
   await updateDoc(doc(db, 'onay_bekleyen', id), { durum: 'reddedildi', reddedentUid: user.uid });
-  bildir('İşlem reddedildi.', 'info');
+  window.bildir('İşlem reddedildi.', 'info');
   adminOnaylar();
 }
 
@@ -1570,22 +1566,72 @@ function detayGoster(baslikEnc, icerikEnc, fotoUrl) {
 // ── EVENT DELEGATION ───────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
 
-  // MODAL KAPAT
-  document.getElementById('modalKapatBtn').onclick = () => document.getElementById('modalOverlay').classList.remove('ac');
+  // Modal overlay click
   document.getElementById('modalOverlay').onclick = (e) => { if (e.target === document.getElementById('modalOverlay')) document.getElementById('modalOverlay').classList.remove('ac'); };
-  document.getElementById('tabGiris').onclick = () => modalAc('giris');
-  document.getElementById('tabKayit').onclick = () => modalAc('kayit');
-
-  // HEADER BUTONLARI
-  document.getElementById('btnGiris').onclick = () => modalAc('giris');
-  document.getElementById('btnKayit').onclick = () => modalAc('kayit');
-  document.getElementById('btnKayitHizli').onclick = () => modalAc('kayit');
-  document.getElementById('linkGiris').onclick = () => modalAc('giris');
-  document.getElementById('btnAdminCikis').onclick = () => typeof signOut !== 'undefined' ? signOut(auth) : null;
-
-  // LIGHTBOX
-  document.getElementById('lbKapat').onclick = lightboxKapat;
+  // Lightbox
   document.getElementById('lightbox').onclick = (e) => { if (e.target === document.getElementById('lightbox')) lightboxKapat(); };
+  // Admin çıkış
+  const btnAdminCikis = document.getElementById('btnAdminCikis');
+  if (btnAdminCikis) btnAdminCikis.onclick = () => window.fbCikis && window.fbCikis();
+  // Module fonksiyonlarını DOM'a bağla
+  function bindBtn(id, fn) {
+    const el = document.getElementById(id);
+    if (el) el.onclick = fn;
+  }
+  function bindChange(id, fn) {
+    const el = document.getElementById(id);
+    if (el) el.onchange = fn;
+  }
+  
+  // Auth butonları
+  bindBtn('btnGirisYap', () => typeof window.girisYap === 'function' && window.girisYap());
+  bindBtn('btnKayitYap', () => typeof window.kayitOl === 'function' && window.kayitOl());
+  bindBtn('lnkSifreSifirla', () => typeof window.sifreSifirla === 'function' && window.sifreSifirla());
+  
+  // İçerik ekleme
+  bindBtn('btnHaberEkle', () => typeof window.haberEkle === 'function' && window.haberEkle());
+  bindBtn('btnDuyuruEkle', () => typeof window.duyuruEkle === 'function' && window.duyuruEkle());
+  bindBtn('btnVefatEkle', () => typeof window.vefatEkle === 'function' && window.vefatEkle());
+  bindBtn('btnArsivEkle', () => typeof window.arsivEkle === 'function' && window.arsivEkle());
+  bindBtn('btnMesajGonder', () => typeof window.mesajGonder === 'function' && window.mesajGonder());
+  bindBtn('btnMuhtarKaydet', () => typeof window.muhtarKaydet === 'function' && window.muhtarKaydet());
+  bindBtn('btnHeroGonder', () => typeof window.heroGonder === 'function' && window.heroGonder());
+  bindChange('inpHeroFoto', (e) => typeof window.heroFotoOnchange === 'function' && window.heroFotoOnchange(e));
+  bindChange('inpGaleriFoto', (e) => typeof window.galeriFotoOnchange === 'function' && window.galeriFotoOnchange(e));
+  
+  // Modal butonları
+  bindBtn('btnGiris', () => modalAc('giris'));
+  bindBtn('btnKayit', () => modalAc('kayit'));
+  bindBtn('modalKapatBtn', () => document.getElementById('modalOverlay').classList.remove('ac'));
+  bindBtn('tabGiris', () => modalAc('giris'));
+  bindBtn('tabKayit', () => modalAc('kayit'));
+  bindBtn('btnKayitHizli', () => modalAc('kayit'));
+  bindBtn('linkGiris', () => modalAc('giris'));
+  bindBtn('lbKapat', lightboxKapat);
+  // Öneri gönder fonksiyonu
+  async function oneriGonder() {
+    const metin = document.getElementById('inpOneri')?.value.trim();
+    const durum = document.getElementById('oneriDurum');
+    if (!metin) { if(durum) durum.textContent = '⚠️ Öneri boş olamaz.'; return; }
+    try {
+      if (typeof window.fbEkle === 'function') {
+        await window.fbEkle('oneriler', { metin, gondericAd: 'Ziyaretçi', okundu: false, createdAt: new Date() });
+      }
+      if(durum) durum.textContent = '✅ Öneriniz iletildi, teşekkürler!';
+      document.getElementById('inpOneri').value = '';
+      setTimeout(() => { if(durum) durum.textContent = ''; }, 4000);
+    } catch(e) { if(durum) durum.textContent = 'Hata: ' + e.message; }
+  }
+  bindBtn('btnOneriGonder', oneriGonder);
+  bindBtn('btnArsivEkleAc', () => {
+    const f = document.getElementById('arsivEkleForm');
+    if (f) f.style.display = f.style.display === 'block' ? 'none' : 'block';
+  });
+  bindBtn('btnArsivIptal', () => {
+    const f = document.getElementById('arsivEkleForm');
+    if (f) f.style.display = 'none';
+  });
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       lightboxKapat();
@@ -1663,8 +1709,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // İçerik silme iste (admin)
     const icSilIste = e.target.closest('[data-icerik-siliste-kol]');
     if (icSilIste) {
-      if (confirm('"' + (icSilIste.dataset.icerikSilisteAd || '?') + '" silme isteği onaya gönderilsin mi?') && typeof window.onayaGonderFn === 'function') {
-        window.onayaGonderFn(icSilIste.dataset.icerikSilisteKol, 'sil', { id: icSilIste.dataset.icerikSilisteId }, '"' + icSilIste.dataset.icerikSilisteAd + '" silme işlemi');
+      if (confirm('"' + (icSilIste.dataset.icerikSilisteAd || '?') + '" silme isteği gönderilsin mi?') && typeof onayaGonder === 'function') {
+        onayaGonder(icSilIste.dataset.icerikSilisteKol, 'sil', { id: icSilIste.dataset.icerikSilisteId }, '"' + icSilIste.dataset.icerikSilisteAd + '" silme işlemi');
       }
       return;
     }
@@ -1744,8 +1790,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const durum = document.getElementById('oneriDurum');
     if (!metin) { durum.textContent = '⚠️ Öneri boş olamaz.'; return; }
     try {
-      if (typeof window.fbEkle === 'function') {
-        await window.fbEkle('oneriler', { metin, gondericAd: 'Ziyaretçi', okundu: false, createdAt: new Date() });
+      if (typeof window.fbEkle === 'function' && typeof collection !== 'undefined' && typeof db !== 'undefined') {
+        await addDoc(collection(db, 'oneriler'), { metin, gondericAd: 'Ziyaretçi', okundu: false, createdAt: new Date() });
       }
       durum.textContent = '✅ Öneriniz iletildi, teşekkürler!';
       document.getElementById('inpOneri').value = '';
@@ -1784,6 +1830,7 @@ function bildir(mesaj, tip) {
   clearTimeout(b._t);
   b._t = setTimeout(() => b.classList.remove('ac'), 3500);
 }
+window.bildir = bildir;
 
 function sliderGit(id, val, direkt) {
   if (window._sliderGit) window._sliderGit(id, val, direkt);
